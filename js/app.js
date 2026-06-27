@@ -1,14 +1,16 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=10";
-import { buildBracket, getChampionSignals, getProjectedChampion } from "./bracket.js?v=10";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=10";
-import { createLiveStore } from "./supabaseStore.js?v=10";
-import { formatTeam, getFlag } from "./flags.js?v=10";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=11";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=11";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=11";
+import { createLiveStore } from "./supabaseStore.js?v=11";
+import { formatTeam, getFlag } from "./flags.js?v=11";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
+const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
 let state = loadState();
 let liveStore = null;
 let remoteSaveTimer = null;
 let submissions = [];
+let personalLookup = localStorage.getItem(PERSONAL_LOOKUP_KEY) || "";
 
 const elements = {
   matchList: document.querySelector("#matchList"),
@@ -25,6 +27,7 @@ const elements = {
   qualityStats: document.querySelector("#qualityStats"),
   championSignals: document.querySelector("#championSignals"),
   scoreBreakdown: document.querySelector("#scoreBreakdown"),
+  playerLookup: document.querySelector("#playerLookup"),
   standings: document.querySelector("#standings"),
   livePointsChart: document.querySelector("#livePointsChart"),
   projectedPointsChart: document.querySelector("#projectedPointsChart"),
@@ -49,6 +52,7 @@ elements.resetButton?.addEventListener("click", resetApp);
 elements.simulateButton?.addEventListener("click", simulateScores);
 elements.lockButtons.forEach((button) => button.addEventListener("click", lockBracket));
 elements.playerName?.addEventListener("input", handlePlayerInput);
+elements.playerLookup?.addEventListener("input", handlePersonalLookup);
 elements.bracket?.addEventListener("click", handleBracketPick);
 elements.bracket?.addEventListener("input", handleBracketScoreInput);
 elements.bracket?.addEventListener("change", handleBracketScoreInput);
@@ -98,19 +102,19 @@ async function init() {
 function render() {
   const rounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores);
   const summary = summarizeScores(state.matches);
-  const champion = getProjectedChampion(rounds);
   const players = buildPlayers();
 
   renderMatches();
   renderBracket(rounds);
-  renderMetrics(summary, champion);
-  renderStats(summary);
+  renderMetrics(summary, players);
+  renderStats(summary, players);
   renderChampionSignals();
   renderScoreBreakdown();
   renderStandings(players);
   renderCharts(players);
   renderLockState();
   renderPlayerDetails();
+  renderPersonalLookup();
   persist();
 }
 
@@ -246,34 +250,51 @@ function renderPlayerDetails() {
 
 }
 
-function renderMetrics(summary, champion) {
-  if (elements.championMetric) elements.championMetric.textContent = champion || "-";
-  if (elements.championSource) elements.championSource.textContent = champion ? "Based on current picks and scores" : "Add picks to see a winner";
-  if (elements.pointsMetric) elements.pointsMetric.textContent = formatNumber(summary.total);
-  if (elements.pointsDetail) elements.pointsDetail.textContent = `${formatNumber(summary.total)} of ${formatNumber(summary.maxPoints)} possible`;
-  if (elements.accuracyMetric) elements.accuracyMetric.textContent = `${Math.round(summary.accuracy * 100)}%`;
-  if (elements.accuracyDetail) elements.accuracyDetail.textContent = `${summary.winnerHits}/${summary.completed} completed winners`;
-  if (elements.exactMetric) elements.exactMetric.textContent = summary.exactHits;
-  if (elements.exactDetail) elements.exactDetail.textContent = `${summary.exactHits}/${summary.completed} final matches`;
+function renderPersonalLookup() {
+  if (elements.playerLookup && elements.playerLookup.value !== personalLookup) {
+    elements.playerLookup.value = personalLookup;
+  }
+}
+
+function renderMetrics(summary, players) {
+  const liveLeader = players.slice().sort((a, b) => b.livePoints - a.livePoints)[0];
+  const projectedLeader = players.slice().sort((a, b) => b.projectedPoints - a.projectedPoints)[0];
+
+  if (elements.championMetric) elements.championMetric.textContent = players.length;
+  if (elements.championSource) elements.championSource.textContent = players.length === 1 ? "1 locked bracket" : `${players.length} locked brackets`;
+  if (elements.pointsMetric) elements.pointsMetric.textContent = `${summary.completed}/16`;
+  if (elements.pointsDetail) elements.pointsDetail.textContent = summary.completed ? `${summary.completed} matches with final scores` : "No final scores yet";
+  if (elements.accuracyMetric) elements.accuracyMetric.textContent = liveLeader ? liveLeader.name : "-";
+  if (elements.accuracyDetail) elements.accuracyDetail.textContent = liveLeader ? `${formatNumber(liveLeader.livePoints)} live points` : "No points yet";
+  if (elements.exactMetric) elements.exactMetric.textContent = projectedLeader ? projectedLeader.name : "-";
+  if (elements.exactDetail) elements.exactDetail.textContent = projectedLeader ? `${formatNumber(projectedLeader.projectedPoints)} projected points` : "Awaiting brackets";
   if (elements.completedPill) elements.completedPill.textContent = elements.lockButton ? (state.locked ? "Locked" : "Draft") : `${summary.completed}/16 final`;
 }
 
-function renderStats(summary) {
+function renderStats(summary, players) {
   if (!elements.qualityStats) return;
 
+  const livePoints = players.map((player) => player.livePoints);
+  const projectedPoints = players.map((player) => player.projectedPoints);
+  const averageLive = livePoints.length ? livePoints.reduce((sum, value) => sum + value, 0) / livePoints.length : 0;
+  const averageProjected = projectedPoints.length ? projectedPoints.reduce((sum, value) => sum + value, 0) / projectedPoints.length : 0;
+  const spread = livePoints.length ? Math.max(...livePoints) - Math.min(...livePoints) : 0;
+  const activeMatches = state.matches.filter((match) => match.actual.status === "live").length;
+
   elements.qualityStats.innerHTML = `
-    <div class="stat-line"><span>Winner hit rate</span><strong>${Math.round(summary.accuracy * 100)}%</strong></div>
-    <div class="stat-line"><span>Goal difference rate</span><strong>${Math.round(summary.goalDiffRate * 100)}%</strong></div>
-    <div class="stat-line"><span>Exact score rate</span><strong>${Math.round(summary.exactRate * 100)}%</strong></div>
-    <div class="stat-line"><span>Points efficiency</span><strong>${summary.maxPoints ? Math.round((summary.total / summary.maxPoints) * 100) : 0}%</strong></div>
-    <div class="stat-line"><span>Average points per final</span><strong>${summary.completed ? (summary.total / summary.completed).toFixed(2) : "0.00"}</strong></div>
+    <div class="stat-line"><span>Locked brackets</span><strong>${players.length}</strong></div>
+    <div class="stat-line"><span>Final matches</span><strong>${summary.completed}</strong></div>
+    <div class="stat-line"><span>Live matches</span><strong>${activeMatches}</strong></div>
+    <div class="stat-line"><span>Average live points</span><strong>${formatNumber(averageLive)}</strong></div>
+    <div class="stat-line"><span>Average projected points</span><strong>${formatNumber(averageProjected)}</strong></div>
+    <div class="stat-line"><span>Live point spread</span><strong>${formatNumber(spread)}</strong></div>
   `;
 }
 
 function renderChampionSignals() {
   if (!elements.championSignals) return;
 
-  const signals = getChampionSignals(state.matches);
+  const signals = getPopularChampions();
   const max = Math.max(...signals.map((signal) => signal.value), 1);
 
   elements.championSignals.replaceChildren(
@@ -294,23 +315,31 @@ function renderChampionSignals() {
 function renderScoreBreakdown() {
   if (!elements.scoreBreakdown) return;
 
+  const matchedSubmission = getPersonalSubmission();
+  const matchedMatches = matchedSubmission ? getSubmittedMatches(matchedSubmission) : null;
   const rows = state.matches
-    .filter((match) => match.actual.status === "final")
-    .map((match) => {
-      const score = scoreMatch(match);
+    .filter((match) => match.actual.status === "final" || match.actual.status === "live")
+    .map((match, index) => {
+      const personalMatch = matchedMatches?.[index];
+      const score = personalMatch ? scoreMatch(personalMatch) : null;
       const row = document.createElement("div");
       row.className = "breakdown-row";
+      const resultText = getResultText(match);
+      const personalText = score
+        ? `Prediction ${formatPrediction(personalMatch)} | ${match.actual.status === "final" ? `${formatNumber(score.total)} pts` : "live"}`
+        : "Enter a submitted name to compare predictions.";
       row.innerHTML = `
         <div>
-          <strong>Match ${match.matchNumber}: ${formatTeam(match.home)} vs ${formatTeam(match.away)}</strong>
-          <small>Winner ${score.winner ? "+1" : "+0"} | GD ${score.goalDifference ? "+0.5" : "+0"} | Exact ${score.exact ? "+1" : "+0"}</small>
+          <strong>Match ${match.matchNumber}: ${formatTeam(match.home)} ${resultText} ${formatTeam(match.away)}</strong>
+          <small>${personalText}</small>
         </div>
-        <strong>${formatNumber(score.total)}</strong>
+        <strong>${match.actual.status === "live" ? "Live" : "Final"}</strong>
       `;
       return row;
     });
 
-  elements.scoreBreakdown.replaceChildren(...(rows.length ? rows : [emptyState("Final scores will appear here")]));
+  const intro = personalLookup && !matchedSubmission ? [emptyState(`No locked bracket found for "${personalLookup}".`)] : [];
+  elements.scoreBreakdown.replaceChildren(...(rows.length ? [...intro, ...rows] : [emptyState("Results will appear here")]));
 }
 
 function renderStandings(players) {
@@ -373,11 +402,7 @@ function buildPlayers() {
 
 function buildSubmittedPlayer(submission) {
   const submittedState = submission.state;
-  const submittedMatches = submittedState.matches || [];
-  const matches = state.matches.map((liveMatch, index) => ({
-    ...liveMatch,
-    prediction: submittedMatches[index]?.prediction || liveMatch.prediction,
-  }));
+  const matches = getSubmittedMatches(submission);
   const livePoints = summarizeScores(matches).total;
   const projectedMatches = matches.map((match) => ({
     ...match,
@@ -400,6 +425,52 @@ function buildSubmittedPlayer(submission) {
     livePoints,
     projectedPoints: summarizeScores(projectedMatches).total,
   };
+}
+
+function getSubmittedMatches(submission) {
+  const submittedMatches = submission.state?.matches || [];
+
+  return state.matches.map((liveMatch, index) => ({
+    ...liveMatch,
+    prediction: submittedMatches[index]?.prediction || liveMatch.prediction,
+  }));
+}
+
+function getPersonalSubmission() {
+  const query = personalLookup.trim().toLowerCase();
+  if (!query) return null;
+
+  return submissions.find((submission) => {
+    const name = submission.player_name || submission.state?.player?.name || "";
+    return name.toLowerCase() === query;
+  });
+}
+
+function getPopularChampions() {
+  const counts = new Map();
+
+  submissions.forEach((submission) => {
+    const submittedState = submission.state || {};
+    const rounds = buildBracket(submittedState.matches || [], submittedState.bracketPicks || {}, submittedState.bracketScores || {});
+    const champion = getProjectedChampion(rounds);
+    if (!champion || champion === "TBD") return;
+    counts.set(champion, (counts.get(champion) || 0) + 1);
+  });
+
+  return Array.from(counts, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 7);
+}
+
+function getResultText(match) {
+  const home = match.actual.home ?? "-";
+  const away = match.actual.away ?? "-";
+  return `${home}-${away}`;
+}
+
+function formatPrediction(match) {
+  const home = match.prediction.home ?? "-";
+  const away = match.prediction.away ?? "-";
+  const pick = match.prediction.pick ? formatTeam(match[match.prediction.pick]) : "no winner";
+  return `${home}-${away}, ${pick}`;
 }
 
 function handleMatchInput(event) {
@@ -473,6 +544,12 @@ function handlePlayerInput(event) {
   state.updatedAt = new Date().toISOString();
   persist();
   queueRemoteSave();
+}
+
+function handlePersonalLookup(event) {
+  personalLookup = event.target.value;
+  localStorage.setItem(PERSONAL_LOOKUP_KEY, personalLookup);
+  renderScoreBreakdown();
 }
 
 function getWinnerText(match) {

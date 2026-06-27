@@ -1146,6 +1146,30 @@ h2 {
   color: var(--text);
 }
 
+.lookup-field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 180px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.lookup-field input {
+  min-height: 36px;
+  border: 1px solid rgba(255, 250, 241, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 250, 241, 0.1);
+  color: var(--text);
+  padding: 0 0.7rem;
+}
+
+.lookup-field input:focus {
+  outline: none;
+  border-color: rgba(198, 232, 112, 0.58);
+  background: rgba(255, 250, 241, 0.15);
+}
+
 .bar-item {
   display: grid;
   gap: 0.4rem;
@@ -1191,6 +1215,8 @@ h2 {
 }
 
 .breakdown-row small {
+  display: block;
+  margin-top: 0.25rem;
   color: var(--muted);
 }
 

@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=10" />
+    <link rel="stylesheet" href="./styles.css?v=11" />
   </head>
   <body>
     <header class="hero">
@@ -44,24 +44,24 @@
     <main id="app" class="app-shell">
       <section class="dashboard" aria-label="Tournament dashboard">
         <article class="metric">
-          <span class="metric__label">Projected Champion</span>
+          <span class="metric__label">Locked Brackets</span>
           <strong id="championMetric">-</strong>
-          <small id="championSource">Awaiting predictions</small>
+          <small id="championSource">Awaiting entries</small>
         </article>
         <article class="metric">
-          <span class="metric__label">Your Points</span>
+          <span class="metric__label">Completed Matches</span>
           <strong id="pointsMetric">0</strong>
           <small id="pointsDetail">No final scores yet</small>
         </article>
         <article class="metric">
-          <span class="metric__label">Winner Accuracy</span>
-          <strong id="accuracyMetric">0%</strong>
-          <small id="accuracyDetail">0 completed matches</small>
+          <span class="metric__label">Current Leader</span>
+          <strong id="accuracyMetric">-</strong>
+          <small id="accuracyDetail">No points yet</small>
         </article>
         <article class="metric">
-          <span class="metric__label">Exact Scores</span>
-          <strong id="exactMetric">0</strong>
-          <small id="exactDetail">0 correct scores</small>
+          <span class="metric__label">Projected Leader</span>
+          <strong id="exactMetric">-</strong>
+          <small id="exactDetail">Awaiting brackets</small>
         </article>
       </section>
 
@@ -102,7 +102,7 @@
           <div class="panel__header">
             <div>
               <p class="eyebrow">Stats</p>
-              <h2>How your picks are doing</h2>
+              <h2>Pool summary</h2>
             </div>
           </div>
           <div id="qualityStats" class="quality-stats"></div>
@@ -112,7 +112,7 @@
           <div class="panel__header">
             <div>
               <p class="eyebrow">Favorites</p>
-              <h2>Teams you backed</h2>
+              <h2>Popular champions</h2>
             </div>
           </div>
           <div id="championSignals" class="bar-list"></div>
@@ -122,14 +122,18 @@
           <div class="panel__header">
             <div>
               <p class="eyebrow">Points</p>
-              <h2>Match-by-match scoring</h2>
+              <h2>Match results</h2>
             </div>
+            <label class="lookup-field">
+              Name
+              <input id="playerLookup" type="text" placeholder="Optional" autocomplete="off" />
+            </label>
           </div>
           <div id="scoreBreakdown" class="score-breakdown"></div>
         </article>
       </section>
     </main>
 
-    <script type="module" src="./js/app.js?v=10"></script>
+    <script type="module" src="./js/app.js?v=11"></script>
   </body>
 </html>
