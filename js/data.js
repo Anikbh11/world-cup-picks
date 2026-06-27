@@ -1,5 +1,5 @@
 export const ROUND_NAMES = ["Round of 32", "Round of 16", "Quarterfinals", "Semifinals", "Final"];
-export const STATE_VERSION = 10;
+export const STATE_VERSION = 11;
 
 export const seedMatches = [
   {

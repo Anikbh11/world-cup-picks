@@ -1,4 +1,5 @@
-import { SUPABASE_CONFIG } from "./config.js?v=15";
+import { SUPABASE_CONFIG } from "./config.js?v=16";
+import { STATE_VERSION } from "./data.js?v=16";
 
 const PLACEHOLDER_VALUES = new Set(["", "YOUR_SUPABASE_URL", "YOUR_SUPABASE_ANON_KEY"]);
 
@@ -48,7 +49,7 @@ export async function createLiveStore() {
         .order("locked_at", { ascending: true });
 
       if (error) throw error;
-      return (data ?? []).filter((submission) => !isMockSubmission(submission));
+      return (data ?? []).filter(isActiveSubmission);
     },
     async saveSubmission(state) {
       const { error } = await client.from("bracket_submissions").upsert({
@@ -105,4 +106,8 @@ function isConfigured() {
 
 function isMockSubmission(submission) {
   return (submission.player_name || submission.state?.player?.name || "").toLowerCase().startsWith("mock ");
+}
+
+function isActiveSubmission(submission) {
+  return !isMockSubmission(submission) && submission.state?.version === STATE_VERSION;
 }
