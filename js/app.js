@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=12";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=12";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=12";
-import { createLiveStore } from "./supabaseStore.js?v=12";
-import { formatTeam, getFlag } from "./flags.js?v=12";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=13";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=13";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=13";
+import { createLiveStore } from "./supabaseStore.js?v=13";
+import { formatTeam, getFlag } from "./flags.js?v=13";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -38,6 +38,7 @@ const elements = {
   lockTitle: document.querySelector("#lockTitle"),
   lockCopy: document.querySelector("#lockCopy"),
   playerName: document.querySelector("#playerName"),
+  bracketLookup: document.querySelector("#bracketLookup"),
   syncStatus: document.querySelector("#syncStatus"),
 };
 
@@ -51,6 +52,7 @@ elements.resetButton?.addEventListener("click", resetApp);
 elements.simulateButton?.addEventListener("click", simulateScores);
 elements.lockButtons.forEach((button) => button.addEventListener("click", lockBracket));
 elements.playerName?.addEventListener("input", handlePlayerInput);
+elements.bracketLookup?.addEventListener("input", handleBracketLookup);
 elements.playerLookup?.addEventListener("input", handlePersonalLookup);
 elements.bracket?.addEventListener("click", handleBracketPick);
 elements.bracket?.addEventListener("input", handleBracketScoreInput);
@@ -234,10 +236,13 @@ function renderLockState() {
     button.disabled = state.locked;
     button.textContent = state.locked ? "Bracket Locked" : "Lock My Bracket";
   });
-  if (elements.resetButton) elements.resetButton.disabled = state.locked;
+  if (elements.resetButton) {
+    elements.resetButton.disabled = false;
+    elements.resetButton.textContent = state.locked ? "New Draft" : "Clear Draft";
+  }
   elements.lockTitle.textContent = state.locked ? "Locked bracket" : "Draft bracket";
   elements.lockCopy.textContent = state.locked
-    ? `Locked ${formatDateTime(state.lockedAt)}. Your picks are frozen.`
+    ? `Showing ${state.player?.name || "a saved bracket"}. Locked ${formatDateTime(state.lockedAt)}.`
     : "Add your name, pick winners, enter scores, then lock your bracket. Make sure to click and select the team you predict to win in each bracket.";
   elements.playerName?.toggleAttribute("disabled", state.locked);
 }
@@ -605,6 +610,29 @@ function handlePlayerInput(event) {
   queueRemoteSave();
 }
 
+function handleBracketLookup(event) {
+  const query = event.target.value.trim().toLowerCase();
+  if (!query) return;
+
+  const submission = submissions.find((item) => {
+    const name = item.player_name || item.state?.player?.name || "";
+    return name.toLowerCase() === query;
+  });
+
+  if (!submission) {
+    if (elements.lockCopy) elements.lockCopy.textContent = `No locked bracket found for "${event.target.value.trim()}".`;
+    return;
+  }
+
+  state = structuredClone(submission.state);
+  state.locked = true;
+  state.lockedAt ||= submission.locked_at;
+  state.updatedAt = new Date().toISOString();
+  persist();
+  render();
+  setSyncStatus("Loaded saved bracket", "connected");
+}
+
 function handlePersonalLookup(event) {
   personalLookup = event.target.value;
   localStorage.setItem(PERSONAL_LOOKUP_KEY, personalLookup);
@@ -647,6 +675,7 @@ function simulateScores() {
 function resetApp() {
   localStorage.removeItem(STORAGE_KEY);
   state = createInitialState();
+  if (elements.bracketLookup) elements.bracketLookup.value = "";
   render();
   queueRemoteSave({ immediate: true });
 }
