@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=8";
-import { buildBracket, getChampionSignals, getProjectedChampion } from "./bracket.js?v=8";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=8";
-import { createLiveStore } from "./supabaseStore.js?v=8";
-import { formatTeam, getFlag } from "./flags.js?v=8";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=9";
+import { buildBracket, getChampionSignals, getProjectedChampion } from "./bracket.js?v=9";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=9";
+import { createLiveStore } from "./supabaseStore.js?v=9";
+import { formatTeam, getFlag } from "./flags.js?v=9";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 let state = loadState();
@@ -39,6 +39,8 @@ const elements = {
   syncStatus: document.querySelector("#syncStatus"),
 };
 
+const isBracketEntryPage = Boolean(elements.lockButton);
+
 init();
 
 elements.matchList?.addEventListener("input", handleMatchInput);
@@ -58,12 +60,14 @@ async function init() {
     liveStore = await createLiveStore();
     setSyncStatus(liveStore.status, liveStore.enabled ? "connected" : "local");
 
-    const remoteState = await liveStore.load();
-    if (isValidState(remoteState) && isNewer(remoteState, state)) {
-      state = remoteState;
-      render();
-    } else if (liveStore.enabled) {
-      await liveStore.save(state);
+    if (!isBracketEntryPage) {
+      const remoteState = await liveStore.load();
+      if (isValidState(remoteState) && isNewer(remoteState, state)) {
+        state = remoteState;
+        render();
+      } else if (liveStore.enabled) {
+        await liveStore.save(state);
+      }
     }
 
     if (liveStore.enabled) {
@@ -71,12 +75,14 @@ async function init() {
       render();
     }
 
-    liveStore.subscribe((incomingState) => {
-      if (!isValidState(incomingState) || !isNewer(incomingState, state)) return;
-      state = incomingState;
-      render();
-      setSyncStatus("Live update received", "connected");
-    });
+    if (!isBracketEntryPage) {
+      liveStore.subscribe((incomingState) => {
+        if (!isValidState(incomingState) || !isNewer(incomingState, state)) return;
+        state = incomingState;
+        render();
+        setSyncStatus("Live update received", "connected");
+      });
+    }
 
     liveStore.subscribeSubmissions(async () => {
       submissions = await liveStore.loadSubmissions();
@@ -552,7 +558,7 @@ function persist() {
 }
 
 function queueRemoteSave({ immediate = false } = {}) {
-  if (!liveStore?.enabled) return;
+  if (!liveStore?.enabled || isBracketEntryPage) return;
   clearTimeout(remoteSaveTimer);
 
   const save = async () => {
