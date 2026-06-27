@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=14";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=14";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=14";
-import { createLiveStore } from "./supabaseStore.js?v=14";
-import { formatTeam, getFlag } from "./flags.js?v=14";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=15";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=15";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=15";
+import { createLiveStore } from "./supabaseStore.js?v=15";
+import { formatTeam, getFlag } from "./flags.js?v=15";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
