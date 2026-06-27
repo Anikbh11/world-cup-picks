@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=13";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=13";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=13";
-import { createLiveStore } from "./supabaseStore.js?v=13";
-import { formatTeam, getFlag } from "./flags.js?v=13";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=14";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=14";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=14";
+import { createLiveStore } from "./supabaseStore.js?v=14";
+import { formatTeam, getFlag } from "./flags.js?v=14";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -568,9 +568,13 @@ function handleBracketPick(event) {
 
   if (button.dataset.round === "0") {
     const match = state.matches.find((item) => item.id === button.dataset.nodeId);
-    if (match) match.prediction.pick = button.dataset.teamIndex === "0" ? "home" : "away";
+    if (match) {
+      match.prediction.pick = button.dataset.teamIndex === "0" ? "home" : "away";
+      enforcePickedWinnerScore(match.prediction);
+    }
   } else {
     state.bracketPicks[button.dataset.nodeId] = button.dataset.teamName;
+    enforceAdvancedRoundScore(button.dataset.nodeId, button.dataset.teamIndex);
   }
 
   state.updatedAt = new Date().toISOString();
@@ -589,16 +593,57 @@ function handleBracketScoreInput(event) {
     if (!match) return;
     if (index === 0) match.prediction.home = value;
     if (index === 1) match.prediction.away = value;
+    enforcePickedWinnerScore(match.prediction);
   } else {
     const current = state.bracketScores[event.target.dataset.nodeId] || [null, null];
     current[index] = value;
     state.bracketScores[event.target.dataset.nodeId] = current;
+    enforceAdvancedRoundScore(event.target.dataset.nodeId);
   }
 
   state.updatedAt = new Date().toISOString();
   render();
   queueRemoteSave();
   restoreBracketFocus(event.target.dataset.nodeId, event.target.dataset.round, index);
+}
+
+function enforcePickedWinnerScore(prediction) {
+  if (!prediction?.pick) return;
+  const pickedKey = prediction.pick;
+  const otherKey = pickedKey === "home" ? "away" : "home";
+  const pickedScore = prediction[pickedKey];
+  const otherScore = prediction[otherKey];
+
+  if (pickedScore === null || pickedScore === undefined || otherScore === null || otherScore === undefined) return;
+  if (Number(pickedScore) < Number(otherScore)) {
+    prediction[pickedKey] = otherScore;
+  }
+}
+
+function enforceAdvancedRoundScore(nodeId, teamIndex) {
+  const score = state.bracketScores[nodeId];
+  if (!score) return;
+
+  const pickedIndex = teamIndex !== undefined ? Number(teamIndex) : getPickedTeamIndex(nodeId);
+  if (pickedIndex !== 0 && pickedIndex !== 1) return;
+
+  const otherIndex = pickedIndex === 0 ? 1 : 0;
+  if (score[pickedIndex] === null || score[pickedIndex] === undefined || score[otherIndex] === null || score[otherIndex] === undefined) return;
+  if (Number(score[pickedIndex]) < Number(score[otherIndex])) {
+    score[pickedIndex] = score[otherIndex];
+  }
+}
+
+function getPickedTeamIndex(nodeId) {
+  const rounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores);
+  const node = rounds.flat().find((item) => item.id === nodeId);
+  if (!node?.winner) return null;
+  return node.teams.findIndex((team) => team.name === node.winner);
+}
+
+function enforceAllPickedWinnerScores() {
+  state.matches.forEach((match) => enforcePickedWinnerScore(match.prediction));
+  Object.keys(state.bracketScores).forEach((nodeId) => enforceAdvancedRoundScore(nodeId));
 }
 
 function handlePlayerInput(event) {
@@ -687,6 +732,7 @@ function lockBracket() {
     elements.lockCopy.textContent = "Add your name before locking your bracket.";
     return;
   }
+  enforceAllPickedWinnerScores();
   state.locked = true;
   state.lockedAt = new Date().toISOString();
   state.updatedAt = new Date().toISOString();
