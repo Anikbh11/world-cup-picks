@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>World Cup Picks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=10" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__backdrop" aria-hidden="true"></div>
+      <nav class="topbar" aria-label="Primary">
+        <a class="brand" href="./index.html" aria-label="World Cup Picks launch page">
+          <span class="brand__mark">32</span>
+          <span>World Cup Picks</span>
+        </a>
+        <div class="topbar__actions">
+          <a class="nav-link is-active" href="./home.html">Home</a>
+          <a class="nav-link" href="./bracket.html">Bracket</a>
+          <span class="sync-pill" id="syncStatus">Local mode</span>
+        </div>
+      </nav>
+      <section class="hero__content">
+        <p class="eyebrow">World Cup Round of 32 pool</p>
+        <h1>FIFA World Cup 2026</h1>
+        <p class="hero__lede">
+          Make your bracket before the knockouts begin, then follow the table as scores come in.
+          Points system: 1 for correctly guessed winner for each game. 0.5 for the correct goal difference and 1 points for the predicting the exact score of the game
+        </p>
+        <div class="score-rules" aria-label="Scoring rules">
+          <span><strong>+1</strong> winner</span>
+          <span><strong>+0.5</strong> goal difference</span>
+          <span><strong>+1</strong> exact score bonus</span>
+        </div>
+      </section>
+    </header>
+
+    <main id="app" class="app-shell">
+      <section class="dashboard" aria-label="Tournament dashboard">
+        <article class="metric">
+          <span class="metric__label">Projected Champion</span>
+          <strong id="championMetric">-</strong>
+          <small id="championSource">Awaiting predictions</small>
+        </article>
+        <article class="metric">
+          <span class="metric__label">Your Points</span>
+          <strong id="pointsMetric">0</strong>
+          <small id="pointsDetail">No final scores yet</small>
+        </article>
+        <article class="metric">
+          <span class="metric__label">Winner Accuracy</span>
+          <strong id="accuracyMetric">0%</strong>
+          <small id="accuracyDetail">0 completed matches</small>
+        </article>
+        <article class="metric">
+          <span class="metric__label">Exact Scores</span>
+          <strong id="exactMetric">0</strong>
+          <small id="exactDetail">0 correct scores</small>
+        </article>
+      </section>
+
+      <section class="home-grid" aria-label="Pool overview">
+        <article class="panel chart-panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Live points</p>
+              <h2>Current standings</h2>
+            </div>
+          </div>
+          <div id="livePointsChart" class="points-list"></div>
+        </article>
+
+        <article class="panel chart-panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Projected points</p>
+              <h2>If remaining picks land</h2>
+            </div>
+          </div>
+          <div id="projectedPointsChart" class="points-list"></div>
+        </article>
+
+        <article class="panel standings-panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Table</p>
+              <h2>Pool standings</h2>
+            </div>
+          </div>
+          <div id="standings" class="standings-list"></div>
+        </article>
+      </section>
+
+      <section class="analytics-grid" aria-label="Pool statistics">
+        <article class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Stats</p>
+              <h2>How your picks are doing</h2>
+            </div>
+          </div>
+          <div id="qualityStats" class="quality-stats"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Favorites</p>
+              <h2>Teams you backed</h2>
+            </div>
+          </div>
+          <div id="championSignals" class="bar-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel__header">
+            <div>
+              <p class="eyebrow">Points</p>
+              <h2>Match-by-match scoring</h2>
+            </div>
+          </div>
+          <div id="scoreBreakdown" class="score-breakdown"></div>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./js/app.js?v=8"></script>
+  </body>
+</html>

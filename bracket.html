@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bracket | World Cup Picks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=10" />
+  </head>
+  <body>
+    <header class="page-header">
+      <nav class="topbar" aria-label="Primary">
+        <a class="brand" href="./index.html" aria-label="World Cup Picks launch page">
+          <span class="brand__mark">32</span>
+          <span>World Cup Picks</span>
+        </a>
+        <div class="topbar__actions">
+          <a class="nav-link" href="./home.html">Home</a>
+          <a class="nav-link is-active" href="./bracket.html">Bracket</a>
+          <span class="sync-pill" id="syncStatus">Local mode</span>
+          <button class="ghost-button" id="resetButton" type="button">Clear Draft</button>
+          <button class="primary-button" id="lockButton" type="button">Lock My Bracket</button>
+        </div>
+      </nav>
+      <section class="page-title">
+        <p class="eyebrow">Full bracket prediction</p>
+        <h1>Lock in your bracket before 28th June 21:00 CET.</h1>
+      </section>
+    </header>
+
+    <main id="app" class="app-shell bracket-shell">
+      <section class="bracket-page-panel">
+        <div class="lock-box lock-box--wide lock-box--details" id="lockBox">
+          <div class="lock-copy">
+            <strong id="lockTitle">Draft bracket</strong>
+            <p id="lockCopy">
+              Add your name, pick winners, enter scores, then lock your bracket. Make sure to click and select the team you predict to win in each bracket.
+            </p>
+          </div>
+          <div class="participant-fields">
+            <label>
+              Name
+              <input id="playerName" class="detail-input" type="text" autocomplete="name" placeholder="Your name" />
+            </label>
+          </div>
+          <span class="status-pill" id="completedPill">Draft</span>
+        </div>
+
+        <section class="bracket-stage" aria-label="Tournament bracket prediction">
+          <div class="section-heading bracket-heading">
+            <div>
+              <p class="eyebrow">Your bracket</p>
+              <h2>Knockout path</h2>
+            </div>
+            <p class="section-note section-note--highlight">Click a team to advance it. Enter score predictions beside each team.</p>
+          </div>
+          <div id="bracket" class="bracket bracket--large"></div>
+        </section>
+
+        <div class="bottom-lock">
+          <div>
+            <strong>Ready?</strong>
+            <span>Locking freezes this bracket for scoring.</span>
+          </div>
+          <button class="primary-button lock-button" type="button">Lock My Bracket</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./js/app.js?v=8"></script>
+  </body>
+</html>
