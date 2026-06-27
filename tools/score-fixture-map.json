@@ -1,5 +1,12 @@
 {
   "provider": "api-football",
+  "competition": {
+    "leagueId": null,
+    "leagueSearch": "World Cup",
+    "season": 2026,
+    "from": "2026-06-28",
+    "to": "2026-07-04"
+  },
   "fixtures": {
     "m74": {
       "fixtureId": null,

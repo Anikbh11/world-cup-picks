@@ -24,6 +24,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
           FOOTBALL_API_BASE: ${{ vars.FOOTBALL_API_BASE }}
+          FOOTBALL_LEAGUE_ID: ${{ vars.FOOTBALL_LEAGUE_ID }}
+          FOOTBALL_SEASON: ${{ vars.FOOTBALL_SEASON }}
           SUPABASE_STATE_ID: world-cup-r32
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
