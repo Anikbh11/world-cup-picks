@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=9";
-import { buildBracket, getChampionSignals, getProjectedChampion } from "./bracket.js?v=9";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=9";
-import { createLiveStore } from "./supabaseStore.js?v=9";
-import { formatTeam, getFlag } from "./flags.js?v=9";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=10";
+import { buildBracket, getChampionSignals, getProjectedChampion } from "./bracket.js?v=10";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=10";
+import { createLiveStore } from "./supabaseStore.js?v=10";
+import { formatTeam, getFlag } from "./flags.js?v=10";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 let state = loadState();
@@ -62,7 +62,7 @@ async function init() {
 
     if (!isBracketEntryPage) {
       const remoteState = await liveStore.load();
-      if (isValidState(remoteState) && isNewer(remoteState, state)) {
+      if (isValidState(remoteState)) {
         state = remoteState;
         render();
       } else if (liveStore.enabled) {
