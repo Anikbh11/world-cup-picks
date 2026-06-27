@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=11" />
+    <link rel="stylesheet" href="./styles.css?v=12" />
   </head>
   <body>
     <header class="hero">
@@ -66,24 +66,14 @@
       </section>
 
       <section class="home-grid" aria-label="Pool overview">
-        <article class="panel chart-panel">
+        <article class="panel race-panel">
           <div class="panel__header">
             <div>
-              <p class="eyebrow">Live points</p>
-              <h2>Current standings</h2>
+              <p class="eyebrow">Race</p>
+              <h2>Pool picture</h2>
             </div>
           </div>
-          <div id="livePointsChart" class="points-list"></div>
-        </article>
-
-        <article class="panel chart-panel">
-          <div class="panel__header">
-            <div>
-              <p class="eyebrow">Projected points</p>
-              <h2>If remaining picks land</h2>
-            </div>
-          </div>
-          <div id="projectedPointsChart" class="points-list"></div>
+          <div id="poolRaceStats" class="race-stats"></div>
         </article>
 
         <article class="panel standings-panel">
@@ -134,6 +124,6 @@
       </section>
     </main>
 
-    <script type="module" src="./js/app.js?v=11"></script>
+    <script type="module" src="./js/app.js?v=12"></script>
   </body>
 </html>

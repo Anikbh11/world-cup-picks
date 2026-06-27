@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=11";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=11";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=11";
-import { createLiveStore } from "./supabaseStore.js?v=11";
-import { formatTeam, getFlag } from "./flags.js?v=11";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=12";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=12";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=12";
+import { createLiveStore } from "./supabaseStore.js?v=12";
+import { formatTeam, getFlag } from "./flags.js?v=12";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -28,9 +28,8 @@ const elements = {
   championSignals: document.querySelector("#championSignals"),
   scoreBreakdown: document.querySelector("#scoreBreakdown"),
   playerLookup: document.querySelector("#playerLookup"),
+  poolRaceStats: document.querySelector("#poolRaceStats"),
   standings: document.querySelector("#standings"),
-  livePointsChart: document.querySelector("#livePointsChart"),
-  projectedPointsChart: document.querySelector("#projectedPointsChart"),
   template: document.querySelector("#matchCardTemplate"),
   resetButton: document.querySelector("#resetButton"),
   simulateButton: document.querySelector("#simulateButton"),
@@ -111,7 +110,7 @@ function render() {
   renderChampionSignals();
   renderScoreBreakdown();
   renderStandings(players);
-  renderCharts(players);
+  renderRaceStats(players);
   renderLockState();
   renderPlayerDetails();
   renderPersonalLookup();
@@ -367,9 +366,69 @@ function renderStandings(players) {
   elements.standings.replaceChildren(...rows);
 }
 
-function renderCharts(players) {
-  renderPointsList(elements.livePointsChart, players, "livePoints");
-  renderPointsList(elements.projectedPointsChart, players, "projectedPoints");
+function renderRaceStats(players) {
+  if (!elements.poolRaceStats) return;
+  if (!players.length) {
+    elements.poolRaceStats.replaceChildren(emptyState("No locked brackets yet."));
+    return;
+  }
+
+  const sorted = players.slice().sort((a, b) => b.livePoints - a.livePoints || b.projectedPoints - a.projectedPoints);
+  const leader = sorted[0];
+  const chasers = sorted.slice(1, 4);
+  const livePoints = players.map((player) => player.livePoints);
+  const projectedPoints = players.map((player) => player.projectedPoints);
+  const averageLive = livePoints.reduce((sum, value) => sum + value, 0) / livePoints.length;
+  const averageProjected = projectedPoints.reduce((sum, value) => sum + value, 0) / projectedPoints.length;
+  const spread = Math.max(...livePoints) - Math.min(...livePoints);
+
+  const leaderCard = document.createElement("div");
+  leaderCard.className = "race-card race-card--leader";
+  leaderCard.innerHTML = `
+    <span>Current leader</span>
+    <strong>${leader.name}</strong>
+    <small>${formatNumber(leader.livePoints)} live points · ${formatNumber(leader.projectedPoints)} projected</small>
+  `;
+
+  const miniGrid = document.createElement("div");
+  miniGrid.className = "race-mini-grid";
+  miniGrid.innerHTML = `
+    <div class="race-card">
+      <span>Average live</span>
+      <strong>${formatNumber(averageLive)}</strong>
+      <small>Across ${players.length} brackets</small>
+    </div>
+    <div class="race-card">
+      <span>Point spread</span>
+      <strong>${formatNumber(spread)}</strong>
+      <small>Leader to last place</small>
+    </div>
+  `;
+
+  const projectionCard = document.createElement("div");
+  projectionCard.className = "race-card";
+  projectionCard.innerHTML = `
+    <span>Average projected</span>
+    <strong>${formatNumber(averageProjected)}</strong>
+    <small>If every remaining prediction lands</small>
+  `;
+
+  const chaserList = document.createElement("div");
+  chaserList.className = "chaser-list";
+  chaserList.append(
+    ...chasers.map((player, index) => {
+      const row = document.createElement("div");
+      row.className = "chaser-row";
+      row.innerHTML = `
+        <span class="standing-rank">${index + 2}</span>
+        <strong>${player.name}</strong>
+        <span>${formatNumber(leader.livePoints - player.livePoints)} back</span>
+      `;
+      return row;
+    }),
+  );
+
+  elements.poolRaceStats.replaceChildren(leaderCard, miniGrid, projectionCard, chaserList);
 }
 
 function renderPointsList(container, players, key) {
