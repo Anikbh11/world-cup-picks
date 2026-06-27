@@ -1,0 +1,33 @@
+name: Daily Score Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Check provider scores without updating Supabase"
+        required: false
+        default: "false"
+  schedule:
+    # 09:00 Europe/Berlin during the World Cup summer window (07:00 UTC).
+    - cron: "0 7 * * *"
+
+jobs:
+  sync-scores:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Sync scores into Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+          FOOTBALL_API_BASE: ${{ vars.FOOTBALL_API_BASE }}
+          SUPABASE_STATE_ID: world-cup-r32
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            node tools/syncScores.mjs --dry-run
+          else
+            node tools/syncScores.mjs
+          fi

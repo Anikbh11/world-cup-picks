@@ -47,6 +47,29 @@ Locked brackets are written to `bracket_submissions` with the player's name, ful
 
 For a public production version, the next step is adding admin-only score controls and tighter write policies so only trusted people can update live results.
 
+## Automatic Daily Score Sync
+
+The repo includes a GitHub Actions workflow that can update Supabase every morning:
+
+- Workflow: `.github/workflows/daily-score-sync.yml`
+- Schedule: `07:00 UTC`, which is `09:00 Europe/Berlin` during the World Cup summer window
+- Sync script: `tools/syncScores.mjs`
+- Fixture map: `tools/score-fixture-map.json`
+
+The script reads the current global bracket state from `bracket_states`, fetches mapped match scores from API-Football/API-SPORTS, updates `matches[*].actual`, and writes the state back to Supabase. The website then recalculates live points, projected points, standings, and match-by-match scoring from that updated state.
+
+Add these GitHub repository secrets before enabling real score sync:
+
+```text
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+FOOTBALL_API_KEY
+```
+
+Then fill each `fixtureId` in `tools/score-fixture-map.json` with the provider's fixture ID for the matching World Cup knockout game. Until fixture IDs are filled in, the workflow exits without changing anything.
+
+Penalty shootouts are handled separately: `home` and `away` store the football score excluding penalties, while `penaltyHome` and `penaltyAway` are stored only to decide the winner if the match ends level. That keeps the scoring rule intact: penalties can decide the winner point, but do not create exact-score or goal-difference bonus points.
+
 ## Deploy With GitHub Pages
 
 1. Create a new GitHub repository.
