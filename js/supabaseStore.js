@@ -1,5 +1,5 @@
-import { SUPABASE_CONFIG } from "./config.js?v=21";
-import { STATE_VERSION } from "./data.js?v=21";
+import { SUPABASE_CONFIG } from "./config.js?v=22";
+import { STATE_VERSION } from "./data.js?v=22";
 
 const PLACEHOLDER_VALUES = new Set(["", "YOUR_SUPABASE_URL", "YOUR_SUPABASE_ANON_KEY"]);
 
@@ -52,10 +52,18 @@ export async function createLiveStore() {
       return (data ?? []).filter(isActiveSubmission);
     },
     async saveSubmission(state) {
+      const playerName = normalizeName(state.player?.name) || "Anonymous";
+      const submissionState = {
+        ...state,
+        player: {
+          ...(state.player || {}),
+          name: playerName,
+        },
+      };
       const { error } = await client.from("bracket_submissions").insert({
         id: state.submissionId,
-        player_name: state.player?.name || "Anonymous",
-        state,
+        player_name: playerName,
+        state: submissionState,
         locked_at: state.lockedAt,
         updated_at: new Date().toISOString(),
       });
@@ -110,4 +118,8 @@ function isMockSubmission(submission) {
 
 function isActiveSubmission(submission) {
   return !isMockSubmission(submission) && submission.state?.version === STATE_VERSION;
+}
+
+function normalizeName(name) {
+  return String(name || "").trim().replace(/\s+/g, " ");
 }

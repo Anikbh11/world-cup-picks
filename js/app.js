@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=21";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=21";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=21";
-import { createLiveStore } from "./supabaseStore.js?v=21";
-import { formatTeam, getFlag } from "./flags.js?v=21";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=22";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=22";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=22";
+import { createLiveStore } from "./supabaseStore.js?v=22";
+import { formatTeam, getFlag } from "./flags.js?v=22";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -480,7 +480,7 @@ function buildSubmittedPlayer(submission) {
             status: "final",
           },
   }));
-  const name = submission.player_name || submittedState.player?.name || "Anonymous";
+  const name = normalizeName(submission.player_name || submittedState.player?.name) || "Anonymous";
 
   return {
     id: submission.id,
@@ -501,12 +501,12 @@ function getSubmittedMatches(submission) {
 }
 
 function getPersonalSubmission() {
-  const query = personalLookup.trim().toLowerCase();
+  const query = normalizeName(personalLookup).toLowerCase();
   if (!query) return null;
 
   return submissions.find((submission) => {
-    const name = submission.player_name || submission.state?.player?.name || "";
-    return name.toLowerCase() === query;
+    const name = normalizeName(submission.player_name || submission.state?.player?.name).toLowerCase();
+    return name === query;
   });
 }
 
@@ -675,12 +675,12 @@ function handlePlayerInput(event) {
 }
 
 function handleBracketLookup(event) {
-  const query = event.target.value.trim().toLowerCase();
+  const query = normalizeName(event.target.value).toLowerCase();
   if (!query) return;
 
   const submission = submissions.find((item) => {
-    const name = item.player_name || item.state?.player?.name || "";
-    return name.toLowerCase() === query;
+    const name = normalizeName(item.player_name || item.state?.player?.name).toLowerCase();
+    return name === query;
   });
 
   if (!submission) {
@@ -752,6 +752,9 @@ async function lockBracket() {
     return;
   }
   enforceAllPickedWinnerScores();
+  state.player ||= { name: "" };
+  state.player.name = normalizeName(state.player.name);
+  if (elements.playerName) elements.playerName.value = state.player.name;
   state.submissionId = crypto.randomUUID();
   state.locked = true;
   state.lockedAt = new Date().toISOString();
@@ -803,6 +806,10 @@ function loadState() {
 
 function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function normalizeName(name) {
+  return String(name || "").trim().replace(/\s+/g, " ");
 }
 
 function queueRemoteSave({ immediate = false } = {}) {
