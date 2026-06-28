@@ -56,15 +56,16 @@ The repo includes a GitHub Actions workflow that can update Supabase every morni
 - Sync script: `tools/syncScores.mjs`
 - Fixture/discovery config: `tools/score-fixture-map.json`
 
-The script reads the current global bracket state from `bracket_states`, fetches match scores from API-Football/API-SPORTS, updates `matches[*].actual`, and writes the state back to Supabase. The website then recalculates live points, projected points, standings, and match-by-match scoring from that updated state.
+The script reads the current global bracket state from `bracket_states`, fetches match scores from ESPN by default, updates `matches[*].actual`, and writes the state back to Supabase. The website then recalculates live points, projected points, standings, and match-by-match scoring from that updated state.
 
 Add these GitHub repository secrets before enabling real score sync:
 
 ```text
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
-FOOTBALL_API_KEY
 ```
+
+`FOOTBALL_API_KEY` is only needed if `tools/score-fixture-map.json` is switched back to `api-football`.
 
 Fixture IDs can be filled manually in `tools/score-fixture-map.json`, but the sync can also discover them from API-Football by using the `competition` block in that file. Discovery works best once both teams are known in the bracket state; placeholder matches like `TBD 3rd A/B/C/D/F` cannot be matched reliably until the real team names are present.
 

@@ -4,8 +4,11 @@ import { fileURLToPath } from "node:url";
 
 const FINAL_STATUSES = new Set(["FT", "AET", "PEN"]);
 const LIVE_STATUSES = new Set(["1H", "HT", "2H", "ET", "BT", "P", "INT", "LIVE"]);
+const ESPN_FINAL_STATES = new Set(["post"]);
+const ESPN_LIVE_STATES = new Set(["in"]);
 const DEFAULT_STATE_ID = "world-cup-r32";
 const DEFAULT_API_BASE = "https://v3.football.api-sports.io";
+const DEFAULT_ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world";
 const TBD_PATTERN = /\b(TBD|Runner-up|Winner Group)\b/i;
 const TEAM_ALIASES = new Map([
   ["united states", "usa"],
@@ -18,6 +21,10 @@ const TEAM_ALIASES = new Map([
   ["côte d'ivoire", "cote divoire"],
   ["cabo verde", "cape verde"],
   ["bosnia-herzegovina", "bosnia and herzegovina"],
+  ["bosnia herzegovina", "bosnia and herzegovina"],
+  ["congo dr", "dr congo"],
+  ["congo, dr", "dr congo"],
+  ["d r congo", "dr congo"],
 ]);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,23 +37,25 @@ main().catch((error) => {
 
 async function main() {
   const map = await readFixtureMap();
+  const provider = map.provider || "api-football";
   const mappedEntries = Object.entries(map.fixtures || {}).filter(([, entry]) => Boolean(getFixtureId(entry)));
 
-  if (!mappedEntries.length && !map.competition) {
+  if (provider !== "espn" && !mappedEntries.length && !map.competition) {
     console.log("No fixture IDs or competition lookup configured. Nothing to sync.");
     return;
   }
 
-  const env = readEnv();
+  const env = readEnv(provider);
   const state = await loadCurrentState(env);
-  const resolvedEntries = mappedEntries.length ? mappedEntries : await discoverFixtureEntries(env, map, state);
+  const updates = provider === "espn"
+    ? await fetchEspnUpdates(env, map, state)
+    : await fetchApiFootballUpdates(env, map, state, mappedEntries);
 
-  if (!resolvedEntries.length) {
-    console.log("No fixtures could be matched from API-Football yet. Nothing to sync.");
+  if (!updates.size) {
+    console.log(`No fixtures could be matched from ${provider} yet. Nothing to sync.`);
     return;
   }
 
-  const updates = await fetchFixtureUpdates(env, resolvedEntries);
   const changed = applyUpdates(state, updates);
 
   if (!changed.length) {
@@ -67,14 +76,14 @@ async function main() {
   console.table(changed);
 }
 
-function readEnv() {
+function readEnv(provider) {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const footballApiKey = process.env.FOOTBALL_API_KEY || process.env.API_FOOTBALL_KEY;
 
   if (!supabaseUrl) throw new Error("Missing SUPABASE_URL.");
   if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY.");
-  if (!footballApiKey) throw new Error("Missing FOOTBALL_API_KEY.");
+  if (provider !== "espn" && !footballApiKey) throw new Error("Missing FOOTBALL_API_KEY.");
 
   return {
     supabaseUrl: supabaseUrl.replace(/\/$/, ""),
@@ -82,6 +91,7 @@ function readEnv() {
     footballApiKey,
     stateId: process.env.SUPABASE_STATE_ID || DEFAULT_STATE_ID,
     apiBase: (process.env.FOOTBALL_API_BASE || DEFAULT_API_BASE).replace(/\/$/, ""),
+    espnBase: (process.env.ESPN_API_BASE || DEFAULT_ESPN_BASE).replace(/\/$/, ""),
     leagueId: process.env.FOOTBALL_LEAGUE_ID || null,
     season: process.env.FOOTBALL_SEASON || null,
   };
@@ -96,6 +106,123 @@ function getFixtureId(entry) {
   if (entry === null || entry === undefined) return null;
   if (typeof entry === "string" || typeof entry === "number") return entry;
   return entry.fixtureId || entry.id || null;
+}
+
+async function fetchApiFootballUpdates(env, map, state, mappedEntries) {
+  const resolvedEntries = mappedEntries.length ? mappedEntries : await discoverFixtureEntries(env, map, state);
+
+  if (!resolvedEntries.length) {
+    return new Map();
+  }
+
+  return fetchFixtureUpdates(env, resolvedEntries);
+}
+
+async function fetchEspnUpdates(env, map, state) {
+  const fixtures = await fetchEspnScoreboardFixtures(env, map);
+  const updates = new Map();
+  const unresolved = [];
+
+  for (const match of state.matches || []) {
+    const matchCandidate = findEspnFixtureForMatch(match, fixtures);
+    if (matchCandidate) {
+      const actual = normalizeEspnFixture(matchCandidate.event, Boolean(matchCandidate.flip));
+      if (actual?.status !== "scheduled") updates.set(match.id, actual);
+    } else if (!hasPlaceholderTeam(match)) {
+      unresolved.push(`${match.id}: ${match.home} vs ${match.away}`);
+    }
+  }
+
+  console.log(`Discovered ${updates.size} fixture update(s) from ESPN.`);
+  if (unresolved.length) {
+    console.log(`Could not auto-match ${unresolved.length} known fixture(s): ${unresolved.join("; ")}`);
+  }
+  if (!updates.size) {
+    logEspnFixtureCandidates(fixtures);
+  }
+
+  return updates;
+}
+
+async function fetchEspnScoreboardFixtures(env, map) {
+  const competition = map.competition || {};
+  const dates = getDateRange(competition.from, competition.to);
+  const events = [];
+
+  for (const date of dates) {
+    const payload = await fetchJson(`${env.espnBase}/scoreboard?dates=${date.replaceAll("-", "")}`);
+    events.push(...(payload?.events || []));
+  }
+
+  return dedupeById(events);
+}
+
+function findEspnFixtureForMatch(match, events) {
+  if (hasPlaceholderTeam(match)) return null;
+
+  const home = normalizeTeamName(match.home);
+  const away = normalizeTeamName(match.away);
+
+  return events.reduce((best, event) => {
+    if (best) return best;
+
+    const competition = event.competitions?.[0];
+    const competitors = competition?.competitors || [];
+    const apiHome = normalizeTeamName(competitors.find((item) => item.homeAway === "home")?.team?.displayName);
+    const apiAway = normalizeTeamName(competitors.find((item) => item.homeAway === "away")?.team?.displayName);
+
+    if (home === apiHome && away === apiAway) return { event, flip: false };
+    if (home === apiAway && away === apiHome) return { event, flip: true };
+    return null;
+  }, null);
+}
+
+function normalizeEspnFixture(event, flip = false) {
+  const competition = event.competitions?.[0];
+  const competitors = competition?.competitors || [];
+  const homeTeam = competitors.find((item) => item.homeAway === "home");
+  const awayTeam = competitors.find((item) => item.homeAway === "away");
+  const apiHome = numberOrNull(homeTeam?.score);
+  const apiAway = numberOrNull(awayTeam?.score);
+  const state = competition?.status?.type?.state || event.status?.type?.state || "pre";
+  const detail = competition?.status?.type?.shortDetail || event.status?.type?.shortDetail || competition?.status?.displayClock || "";
+  const status = ESPN_FINAL_STATES.has(state) || competition?.status?.type?.completed
+    ? "final"
+    : ESPN_LIVE_STATES.has(state)
+      ? "live"
+      : "scheduled";
+  const home = status === "scheduled" ? null : flip ? apiAway : apiHome;
+  const away = status === "scheduled" ? null : flip ? apiHome : apiAway;
+  const apiPick = getPickFromScore(apiHome, apiAway);
+  const pick = flip ? flipPick(apiPick) : apiPick;
+
+  return {
+    home,
+    away,
+    pick: status === "scheduled" ? null : pick,
+    tieBreaker: status === "scheduled" ? null : pick,
+    status,
+    sourceStatus: detail || state,
+    sourceProvider: "espn",
+    sourceUpdatedAt: new Date().toISOString(),
+  };
+}
+
+function logEspnFixtureCandidates(events) {
+  if (!events.length) {
+    console.log("ESPN returned no fixtures for the configured date range.");
+    return;
+  }
+
+  console.log("ESPN fixtures returned for this config:");
+  events.slice(0, 60).forEach((event) => {
+    const competition = event.competitions?.[0];
+    const competitors = competition?.competitors || [];
+    const home = competitors.find((item) => item.homeAway === "home")?.team?.displayName || "-";
+    const away = competitors.find((item) => item.homeAway === "away")?.team?.displayName || "-";
+    const status = competition?.status?.type?.shortDetail || competition?.status?.type?.description || "-";
+    console.log(`${event.id || "-"}: ${home} vs ${away} | ${event.date || "-"} | ${event.season?.slug || "-"} | ${status}`);
+  });
 }
 
 async function discoverFixtureEntries(env, map, state) {
@@ -371,6 +498,12 @@ function getPickFromScore(home, away) {
   return home > away ? "home" : "away";
 }
 
+function flipPick(pick) {
+  if (pick === "home") return "away";
+  if (pick === "away") return "home";
+  return pick;
+}
+
 function normalizeTeamName(value) {
   const normalized = String(value || "")
     .normalize("NFD")
@@ -386,15 +519,51 @@ function normalizeTeamName(value) {
 
 function formatScore(actual) {
   const score = `${actual.home ?? "-"}-${actual.away ?? "-"}`;
-  if (actual.penaltyHome !== null && actual.penaltyAway !== null) {
+  if (actual.penaltyHome !== null && actual.penaltyHome !== undefined && actual.penaltyAway !== null && actual.penaltyAway !== undefined) {
     return `${score} pens ${actual.penaltyHome}-${actual.penaltyAway}`;
   }
   return score;
 }
 
 function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function getDateRange(from, to) {
+  if (!from || !to) return [new Date().toISOString().slice(0, 10)];
+
+  const dates = [];
+  const cursor = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+
+  while (cursor <= end && dates.length < 40) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return dates;
+}
+
+function dedupeById(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const id = item.id || item.uid;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status} ${response.statusText} for ${url}`);
+  }
+
+  return response.json();
 }
 
 async function supabaseFetch(env, endpoint, options = {}) {

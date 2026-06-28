@@ -1,5 +1,5 @@
 {
-  "provider": "api-football",
+  "provider": "espn",
   "competition": {
     "leagueId": 1,
     "leagueSearch": "World Cup",
