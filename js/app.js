@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=17";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=17";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=17";
-import { createLiveStore } from "./supabaseStore.js?v=17";
-import { formatTeam, getFlag } from "./flags.js?v=17";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=18";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=18";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=18";
+import { createLiveStore } from "./supabaseStore.js?v=18";
+import { formatTeam, getFlag } from "./flags.js?v=18";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -598,6 +598,7 @@ function handleBracketScoreInput(event) {
     const current = state.bracketScores[event.target.dataset.nodeId] || [null, null];
     current[index] = value;
     state.bracketScores[event.target.dataset.nodeId] = current;
+    selectAdvancedRoundWinnerFromScore(event.target.dataset.nodeId);
     enforceAdvancedRoundScore(event.target.dataset.nodeId);
   }
 
@@ -631,6 +632,24 @@ function enforceAdvancedRoundScore(nodeId, teamIndex) {
   if (score[pickedIndex] === null || score[pickedIndex] === undefined || score[otherIndex] === null || score[otherIndex] === undefined) return;
   if (Number(score[pickedIndex]) < Number(score[otherIndex])) {
     score[pickedIndex] = score[otherIndex];
+  }
+}
+
+function selectAdvancedRoundWinnerFromScore(nodeId) {
+  const score = state.bracketScores[nodeId];
+  if (!score) return;
+
+  const first = Number(score[0]);
+  const second = Number(score[1]);
+  if (!Number.isFinite(first) || !Number.isFinite(second) || first === second) return;
+
+  const rounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores);
+  const node = rounds.flat().find((item) => item.id === nodeId);
+  const winnerIndex = first > second ? 0 : 1;
+  const winner = node?.teams?.[winnerIndex]?.name;
+
+  if (winner && winner !== "TBD") {
+    state.bracketPicks[nodeId] = winner;
   }
 }
 
