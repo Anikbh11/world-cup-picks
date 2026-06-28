@@ -1,11 +1,12 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=27";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=27";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=27";
-import { createLiveStore } from "./supabaseStore.js?v=27";
-import { formatTeam, getFlag } from "./flags.js?v=27";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=28";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=28";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=28";
+import { createLiveStore } from "./supabaseStore.js?v=28";
+import { formatTeam, getFlag } from "./flags.js?v=28";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
+const SUBMISSIONS_OPEN = false;
 let state = loadState();
 let liveStore = null;
 let remoteSaveTimer = null;
@@ -233,8 +234,8 @@ function renderLockState() {
   if (!elements.lockButton) return;
 
   elements.lockButtons.forEach((button) => {
-    button.disabled = state.locked;
-    button.textContent = state.locked ? "Bracket Locked" : "Lock My Bracket";
+    button.disabled = state.locked || !SUBMISSIONS_OPEN;
+    button.textContent = state.locked ? "Bracket Locked" : SUBMISSIONS_OPEN ? "Lock My Bracket" : "Submissions Closed";
   });
   if (elements.resetButton) {
     elements.resetButton.disabled = false;
@@ -243,7 +244,9 @@ function renderLockState() {
   elements.lockTitle.textContent = state.locked ? "Locked bracket" : "Draft bracket";
   elements.lockCopy.textContent = state.locked
     ? `Showing ${state.player?.name || "a saved bracket"}. Locked ${formatDateTime(state.lockedAt)}.`
-    : "Add your name, pick winners, enter scores, then lock your bracket. Make sure to click and select the team you predict to win in each bracket.";
+    : SUBMISSIONS_OPEN
+      ? "Add your name, pick winners, enter scores, then lock your bracket. Make sure to click and select the team you predict to win in each bracket."
+      : "New bracket submissions are closed. You can still view locked brackets by entering a submitted name.";
   elements.playerName?.toggleAttribute("disabled", state.locked);
 }
 
@@ -814,6 +817,10 @@ function resetApp() {
 
 async function lockBracket() {
   if (state.locked) return;
+  if (!SUBMISSIONS_OPEN) {
+    if (elements.lockCopy) elements.lockCopy.textContent = "New bracket submissions are closed.";
+    return;
+  }
   if (elements.playerName && !state.player?.name?.trim()) {
     elements.playerName.focus();
     elements.lockCopy.textContent = "Add your name before locking your bracket.";
