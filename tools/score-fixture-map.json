@@ -10,11 +10,11 @@
   "fixtures": {
     "m74": {
       "fixtureId": null,
-      "label": "Germany vs TBD 3rd A/B/C/D/F"
+      "label": "Germany vs Paraguay"
     },
     "m77": {
       "fixtureId": null,
-      "label": "France vs TBD 3rd C/D/F/G/H"
+      "label": "France vs Sweden"
     },
     "m73": {
       "fixtureId": null,
@@ -26,11 +26,11 @@
     },
     "m83": {
       "fixtureId": null,
-      "label": "Runner-up Group K vs Runner-up Group L"
+      "label": "Portugal vs Croatia"
     },
     "m84": {
       "fixtureId": null,
-      "label": "Spain vs Runner-up Group J"
+      "label": "Spain vs Austria"
     },
     "m81": {
       "fixtureId": null,
@@ -38,7 +38,7 @@
     },
     "m82": {
       "fixtureId": null,
-      "label": "Belgium vs TBD 3rd A/E/H/I/J"
+      "label": "Belgium vs Senegal"
     },
     "m76": {
       "fixtureId": null,
@@ -50,11 +50,11 @@
     },
     "m79": {
       "fixtureId": null,
-      "label": "Mexico vs TBD 3rd C/E/F/H/I"
+      "label": "Mexico vs Ecuador"
     },
     "m80": {
       "fixtureId": null,
-      "label": "Winner Group L vs TBD 3rd E/H/I/J/K"
+      "label": "England vs DR Congo"
     },
     "m86": {
       "fixtureId": null,
@@ -66,11 +66,11 @@
     },
     "m85": {
       "fixtureId": null,
-      "label": "Switzerland vs TBD 3rd E/F/G/I/J"
+      "label": "Switzerland vs Algeria"
     },
     "m87": {
       "fixtureId": null,
-      "label": "Winner Group K vs TBD 3rd D/E/I/J/L"
+      "label": "Colombia vs Ghana"
     }
   }
 }

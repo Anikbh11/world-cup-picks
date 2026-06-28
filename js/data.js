@@ -1,16 +1,16 @@
 export const ROUND_NAMES = ["Round of 32", "Round of 16", "Quarterfinals", "Semifinals", "Final"];
-export const STATE_VERSION = 11;
+export const STATE_VERSION = 12;
 
 export const seedMatches = [
   {
     matchNumber: 74,
     home: "Germany",
-    away: "TBD 3rd A/B/C/D/F",
+    away: "Paraguay",
   },
   {
     matchNumber: 77,
     home: "France",
-    away: "TBD 3rd C/D/F/G/H",
+    away: "Sweden",
   },
   {
     matchNumber: 73,
@@ -24,13 +24,13 @@ export const seedMatches = [
   },
   {
     matchNumber: 83,
-    home: "Runner-up Group K",
-    away: "Runner-up Group L",
+    home: "Portugal",
+    away: "Croatia",
   },
   {
     matchNumber: 84,
     home: "Spain",
-    away: "Runner-up Group J",
+    away: "Austria",
   },
   {
     matchNumber: 81,
@@ -40,7 +40,7 @@ export const seedMatches = [
   {
     matchNumber: 82,
     home: "Belgium",
-    away: "TBD 3rd A/E/H/I/J",
+    away: "Senegal",
   },
   {
     matchNumber: 76,
@@ -55,12 +55,12 @@ export const seedMatches = [
   {
     matchNumber: 79,
     home: "Mexico",
-    away: "TBD 3rd C/E/F/H/I",
+    away: "Ecuador",
   },
   {
     matchNumber: 80,
-    home: "Winner Group L",
-    away: "TBD 3rd E/H/I/J/K",
+    home: "England",
+    away: "DR Congo",
   },
   {
     matchNumber: 86,
@@ -75,12 +75,12 @@ export const seedMatches = [
   {
     matchNumber: 85,
     home: "Switzerland",
-    away: "TBD 3rd E/F/G/I/J",
+    away: "Algeria",
   },
   {
     matchNumber: 87,
-    home: "Winner Group K",
-    away: "TBD 3rd D/E/I/J/L",
+    home: "Colombia",
+    away: "Ghana",
   },
 ].map((match, index) => ({
   id: `m${match.matchNumber}`,
