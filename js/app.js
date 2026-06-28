@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=22";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=22";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=22";
-import { createLiveStore } from "./supabaseStore.js?v=22";
-import { formatTeam, getFlag } from "./flags.js?v=22";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=23";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=23";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=23";
+import { createLiveStore } from "./supabaseStore.js?v=23";
+import { formatTeam, getFlag } from "./flags.js?v=23";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -327,17 +327,18 @@ function renderScoreBreakdown() {
       const personalMatch = matchedMatches?.[index];
       const score = personalMatch ? scoreMatch(personalMatch) : null;
       const row = document.createElement("div");
-      row.className = "breakdown-row";
+      row.className = `breakdown-row ${match.actual.status === "live" ? "is-live" : "is-final"}`;
       const resultText = getResultText(match);
+      const statusText = getResultStatusText(match);
       const personalText = score
-        ? `Prediction ${formatPrediction(personalMatch)} | ${match.actual.status === "final" ? `${formatNumber(score.total)} pts` : "live"}`
+        ? `Prediction ${formatPrediction(personalMatch)} | ${match.actual.status === "final" ? `${formatNumber(score.total)} pts` : "points after final whistle"}`
         : "Enter a submitted name to compare predictions.";
       row.innerHTML = `
         <div>
           <strong>Match ${match.matchNumber}: ${formatTeam(match.home)} ${resultText} ${formatTeam(match.away)}</strong>
           <small>${personalText}</small>
         </div>
-        <strong>${match.actual.status === "live" ? "Live" : "Final"}</strong>
+        <strong class="result-pill">${statusText}</strong>
       `;
       return row;
     });
@@ -528,6 +529,13 @@ function getResultText(match) {
   const home = match.actual.home ?? "-";
   const away = match.actual.away ?? "-";
   return `${home}-${away}`;
+}
+
+function getResultStatusText(match) {
+  const score = getResultText(match);
+  if (match.actual.status === "live") return `Live · ${score}`;
+  if (match.actual.status === "final") return `Final · ${score}`;
+  return "Scheduled";
 }
 
 function formatPrediction(match) {
