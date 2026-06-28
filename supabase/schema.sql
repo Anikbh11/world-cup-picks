@@ -52,12 +52,6 @@ to anon
 with check (true);
 
 drop policy if exists "Public can update bracket submissions" on public.bracket_submissions;
-create policy "Public can update bracket submissions"
-on public.bracket_submissions
-for update
-to anon
-using (true)
-with check (true);
 
 do $$
 begin

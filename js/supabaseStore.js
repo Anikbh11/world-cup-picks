@@ -1,5 +1,5 @@
-import { SUPABASE_CONFIG } from "./config.js?v=20";
-import { STATE_VERSION } from "./data.js?v=20";
+import { SUPABASE_CONFIG } from "./config.js?v=21";
+import { STATE_VERSION } from "./data.js?v=21";
 
 const PLACEHOLDER_VALUES = new Set(["", "YOUR_SUPABASE_URL", "YOUR_SUPABASE_ANON_KEY"]);
 
@@ -52,7 +52,7 @@ export async function createLiveStore() {
       return (data ?? []).filter(isActiveSubmission);
     },
     async saveSubmission(state) {
-      const { error } = await client.from("bracket_submissions").upsert({
+      const { error } = await client.from("bracket_submissions").insert({
         id: state.submissionId,
         player_name: state.player?.name || "Anonymous",
         state,
