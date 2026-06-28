@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=24";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=24";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=24";
-import { createLiveStore } from "./supabaseStore.js?v=24";
-import { formatTeam, getFlag } from "./flags.js?v=24";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=25";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=25";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=25";
+import { createLiveStore } from "./supabaseStore.js?v=25";
+import { formatTeam, getFlag } from "./flags.js?v=25";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -542,8 +542,16 @@ function getResultStatusText(match) {
 function formatPrediction(match) {
   const home = match.prediction.home ?? "-";
   const away = match.prediction.away ?? "-";
-  const pick = match.prediction.pick ? formatTeam(match[match.prediction.pick]) : "no winner";
+  const pickedSide = match.prediction.pick || getPredictedWinnerFromScore(match.prediction);
+  const pick = pickedSide ? formatTeam(match[pickedSide]) : "draw";
   return `${home}-${away}, ${pick}`;
+}
+
+function getPredictedWinnerFromScore(prediction) {
+  const home = prediction.home === null || prediction.home === undefined || prediction.home === "" ? null : Number(prediction.home);
+  const away = prediction.away === null || prediction.away === undefined || prediction.away === "" ? null : Number(prediction.away);
+  if (!Number.isFinite(home) || !Number.isFinite(away) || home === away) return null;
+  return home > away ? "home" : "away";
 }
 
 function handleMatchInput(event) {
