@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=25";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=25";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=25";
-import { createLiveStore } from "./supabaseStore.js?v=25";
-import { formatTeam, getFlag } from "./flags.js?v=25";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=26";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=26";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=26";
+import { createLiveStore } from "./supabaseStore.js?v=26";
+import { formatTeam, getFlag } from "./flags.js?v=26";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -271,7 +271,7 @@ function renderMetrics(summary, players) {
   if (elements.accuracyMetric) elements.accuracyMetric.textContent = liveLeader ? liveLeader.name : "-";
   if (elements.accuracyDetail) elements.accuracyDetail.textContent = liveLeader ? `${formatNumber(liveLeader.livePoints)} live points` : "No points yet";
   if (elements.exactMetric) elements.exactMetric.textContent = projectedLeader ? projectedLeader.name : "-";
-  if (elements.exactDetail) elements.exactDetail.textContent = projectedLeader ? `${formatNumber(projectedLeader.projectedPoints)} projected points` : "Awaiting brackets";
+  if (elements.exactDetail) elements.exactDetail.textContent = projectedLeader ? `${formatNumber(projectedLeader.projectedPoints)} max possible points` : "Awaiting brackets";
   if (elements.completedPill) elements.completedPill.textContent = elements.lockButton ? (state.locked ? "Locked" : "Draft") : `${summary.completed}/16 final`;
 }
 
@@ -290,7 +290,7 @@ function renderStats(summary, players) {
     <div class="stat-line"><span>Final matches</span><strong>${summary.completed}</strong></div>
     <div class="stat-line"><span>Live matches</span><strong>${activeMatches}</strong></div>
     <div class="stat-line"><span>Average live points</span><strong>${formatNumber(averageLive)}</strong></div>
-    <div class="stat-line"><span>Average projected points</span><strong>${formatNumber(averageProjected)}</strong></div>
+    <div class="stat-line"><span>Average max possible</span><strong>${formatNumber(averageProjected)}</strong></div>
     <div class="stat-line"><span>Live point spread</span><strong>${formatNumber(spread)}</strong></div>
   `;
 }
@@ -365,7 +365,7 @@ function renderStandings(players) {
         <span class="standing-rank">${index + 1}</span>
         <strong>${player.name}</strong>
         <span>${formatNumber(player.livePoints)} live</span>
-        <span>${formatNumber(player.projectedPoints)} projected</span>
+        <span>${formatNumber(player.projectedPoints)} max</span>
       `;
       return row;
     });
@@ -394,7 +394,7 @@ function renderRaceStats(players) {
   leaderCard.innerHTML = `
     <span>Current leader</span>
     <strong>${leader.name}</strong>
-    <small>${formatNumber(leader.livePoints)} live points · ${formatNumber(leader.projectedPoints)} projected</small>
+    <small>${formatNumber(leader.livePoints)} live points · ${formatNumber(leader.projectedPoints)} max possible</small>
   `;
 
   const miniGrid = document.createElement("div");
@@ -415,7 +415,7 @@ function renderRaceStats(players) {
   const projectionCard = document.createElement("div");
   projectionCard.className = "race-card";
   projectionCard.innerHTML = `
-    <span>Average projected</span>
+    <span>Average max possible</span>
     <strong>${formatNumber(averageProjected)}</strong>
     <small>If every remaining prediction lands</small>
   `;
