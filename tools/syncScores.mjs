@@ -169,6 +169,25 @@ async function discoverLeagueId(env, competition) {
 }
 
 async function fetchCompetitionFixtures(env, competition) {
+  const params = buildFixtureParams(competition);
+  const payload = await fetchApiFootball(env, `/fixtures?${params}`);
+  const fixtures = payload?.response || [];
+
+  if (fixtures.length || (!competition.from && !competition.to)) {
+    return fixtures;
+  }
+
+  console.log("No fixtures returned for the configured date range. Retrying the full season.");
+  const fallbackParams = buildFixtureParams({
+    ...competition,
+    from: null,
+    to: null,
+  });
+  const fallbackPayload = await fetchApiFootball(env, `/fixtures?${fallbackParams}`);
+  return fallbackPayload?.response || [];
+}
+
+function buildFixtureParams(competition) {
   const params = new URLSearchParams({
     league: String(competition.leagueId),
     season: String(competition.season),
@@ -177,9 +196,7 @@ async function fetchCompetitionFixtures(env, competition) {
   if (competition.from) params.set("from", competition.from);
   if (competition.to) params.set("to", competition.to);
   if (competition.round) params.set("round", competition.round);
-
-  const payload = await fetchApiFootball(env, `/fixtures?${params}`);
-  return payload?.response || [];
+  return params;
 }
 
 function findFixtureForMatch(match, fixtures) {
