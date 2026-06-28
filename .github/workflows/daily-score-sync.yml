@@ -1,4 +1,4 @@
-name: Daily Score Sync
+name: Score Sync
 
 on:
   workflow_dispatch:
@@ -8,8 +8,8 @@ on:
         required: false
         default: "false"
   schedule:
-    # 09:00 Europe/Berlin during the World Cup summer window (07:00 UTC).
-    - cron: "0 7 * * *"
+    # Every 15 minutes. GitHub cron uses UTC.
+    - cron: "*/15 * * * *"
 
 jobs:
   sync-scores:
