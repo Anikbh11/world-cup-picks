@@ -133,8 +133,29 @@ async function discoverFixtureEntries(env, map, state) {
   if (unresolved.length) {
     console.log(`Could not auto-match ${unresolved.length} known fixture(s): ${unresolved.join("; ")}`);
   }
+  if (!resolved.length) {
+    logFixtureCandidates(fixtures);
+  }
 
   return resolved;
+}
+
+function logFixtureCandidates(fixtures) {
+  if (!fixtures.length) {
+    console.log("API-Football returned no fixtures for the configured league, season, and date range.");
+    return;
+  }
+
+  console.log("API-Football fixtures returned for this config:");
+  fixtures.slice(0, 40).forEach((fixture) => {
+    const id = fixture.fixture?.id || "-";
+    const date = fixture.fixture?.date || "-";
+    const round = fixture.league?.round || "-";
+    const status = fixture.fixture?.status?.short || "-";
+    const home = fixture.teams?.home?.name || "-";
+    const away = fixture.teams?.away?.name || "-";
+    console.log(`${id}: ${home} vs ${away} | ${date} | ${round} | ${status}`);
+  });
 }
 
 async function discoverLeagueId(env, competition) {
