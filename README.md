@@ -76,7 +76,7 @@ FOOTBALL_SEASON
 FOOTBALL_API_BASE
 ```
 
-Use these only if the default discovery config needs to be overridden.
+Use these only if the default discovery config needs to be overridden. The fixture map already uses API-Football league ID `1` for the World Cup.
 
 Penalty shootouts are handled separately: `home` and `away` store the football score excluding penalties, while `penaltyHome` and `penaltyAway` are stored only to decide the winner if the match ends level. That keeps the scoring rule intact: penalties can decide the winner point, but do not create exact-score or goal-difference bonus points.
 
