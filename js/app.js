@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=18";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=18";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=18";
-import { createLiveStore } from "./supabaseStore.js?v=18";
-import { formatTeam, getFlag } from "./flags.js?v=18";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=19";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=19";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=19";
+import { createLiveStore } from "./supabaseStore.js?v=19";
+import { formatTeam, getFlag } from "./flags.js?v=19";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -744,7 +744,7 @@ function resetApp() {
   queueRemoteSave({ immediate: true });
 }
 
-function lockBracket() {
+async function lockBracket() {
   if (state.locked) return;
   if (elements.playerName && !state.player?.name?.trim()) {
     elements.playerName.focus();
@@ -755,21 +755,38 @@ function lockBracket() {
   state.locked = true;
   state.lockedAt = new Date().toISOString();
   state.updatedAt = new Date().toISOString();
+
+  if (liveStore?.enabled) {
+    setSyncStatus("Saving submission...", "syncing");
+    const saved = await saveSubmission();
+    if (!saved) {
+      state.locked = false;
+      state.lockedAt = null;
+      state.updatedAt = new Date().toISOString();
+      render();
+      if (elements.lockCopy) {
+        elements.lockCopy.textContent = "Could not save your bracket. Check the connection and try locking again.";
+      }
+      return;
+    }
+  }
+
   render();
-  saveSubmission();
   queueRemoteSave({ immediate: true });
 }
 
 async function saveSubmission() {
-  if (!liveStore?.enabled) return;
+  if (!liveStore?.enabled) return true;
 
   try {
     await liveStore.saveSubmission(state);
     submissions = await liveStore.loadSubmissions();
     setSyncStatus("Submission saved", "connected");
+    return true;
   } catch (error) {
     console.error(error);
     setSyncStatus("Save failed", "warning");
+    return false;
   }
 }
 
