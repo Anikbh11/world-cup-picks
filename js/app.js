@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=23";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=23";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=23";
-import { createLiveStore } from "./supabaseStore.js?v=23";
-import { formatTeam, getFlag } from "./flags.js?v=23";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=24";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=24";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=24";
+import { createLiveStore } from "./supabaseStore.js?v=24";
+import { formatTeam, getFlag } from "./flags.js?v=24";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -322,8 +322,9 @@ function renderScoreBreakdown() {
   const matchedSubmission = getPersonalSubmission();
   const matchedMatches = matchedSubmission ? getSubmittedMatches(matchedSubmission) : null;
   const rows = state.matches
-    .filter((match) => match.actual.status === "final" || match.actual.status === "live")
-    .map((match, index) => {
+    .map((match, index) => ({ match, index }))
+    .filter(({ match }) => match.actual.status === "final" || match.actual.status === "live")
+    .map(({ match, index }) => {
       const personalMatch = matchedMatches?.[index];
       const score = personalMatch ? scoreMatch(personalMatch) : null;
       const row = document.createElement("div");
