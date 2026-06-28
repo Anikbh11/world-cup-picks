@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=26";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=26";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=26";
-import { createLiveStore } from "./supabaseStore.js?v=26";
-import { formatTeam, getFlag } from "./flags.js?v=26";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=27";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=27";
+import { scoreMatch, summarizeScores } from "./scoring.js?v=27";
+import { createLiveStore } from "./supabaseStore.js?v=27";
+import { formatTeam, getFlag } from "./flags.js?v=27";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -271,7 +271,7 @@ function renderMetrics(summary, players) {
   if (elements.accuracyMetric) elements.accuracyMetric.textContent = liveLeader ? liveLeader.name : "-";
   if (elements.accuracyDetail) elements.accuracyDetail.textContent = liveLeader ? `${formatNumber(liveLeader.livePoints)} live points` : "No points yet";
   if (elements.exactMetric) elements.exactMetric.textContent = projectedLeader ? projectedLeader.name : "-";
-  if (elements.exactDetail) elements.exactDetail.textContent = projectedLeader ? `${formatNumber(projectedLeader.projectedPoints)} max possible points` : "Awaiting brackets";
+  if (elements.exactDetail) elements.exactDetail.textContent = projectedLeader ? `${formatNumber(projectedLeader.projectedPoints)} predicted points` : "Awaiting brackets";
   if (elements.completedPill) elements.completedPill.textContent = elements.lockButton ? (state.locked ? "Locked" : "Draft") : `${summary.completed}/16 final`;
 }
 
@@ -290,7 +290,7 @@ function renderStats(summary, players) {
     <div class="stat-line"><span>Final matches</span><strong>${summary.completed}</strong></div>
     <div class="stat-line"><span>Live matches</span><strong>${activeMatches}</strong></div>
     <div class="stat-line"><span>Average live points</span><strong>${formatNumber(averageLive)}</strong></div>
-    <div class="stat-line"><span>Average max possible</span><strong>${formatNumber(averageProjected)}</strong></div>
+    <div class="stat-line"><span>Average predicted points</span><strong>${formatNumber(averageProjected)}</strong></div>
     <div class="stat-line"><span>Live point spread</span><strong>${formatNumber(spread)}</strong></div>
   `;
 }
@@ -365,7 +365,7 @@ function renderStandings(players) {
         <span class="standing-rank">${index + 1}</span>
         <strong>${player.name}</strong>
         <span>${formatNumber(player.livePoints)} live</span>
-        <span>${formatNumber(player.projectedPoints)} max</span>
+        <span>${formatNumber(player.projectedPoints)} predicted</span>
       `;
       return row;
     });
@@ -394,7 +394,7 @@ function renderRaceStats(players) {
   leaderCard.innerHTML = `
     <span>Current leader</span>
     <strong>${leader.name}</strong>
-    <small>${formatNumber(leader.livePoints)} live points · ${formatNumber(leader.projectedPoints)} max possible</small>
+    <small>${formatNumber(leader.livePoints)} live points · ${formatNumber(leader.projectedPoints)} predicted</small>
   `;
 
   const miniGrid = document.createElement("div");
@@ -415,7 +415,7 @@ function renderRaceStats(players) {
   const projectionCard = document.createElement("div");
   projectionCard.className = "race-card";
   projectionCard.innerHTML = `
-    <span>Average max possible</span>
+    <span>Average predicted</span>
     <strong>${formatNumber(averageProjected)}</strong>
     <small>If every remaining prediction lands</small>
   `;
@@ -463,25 +463,18 @@ function renderPointsList(container, players, key) {
 }
 
 function buildPlayers() {
-  return submissions.map((submission) => buildSubmittedPlayer(submission));
+  const predictionModel = buildPredictionModel(submissions);
+  return submissions.map((submission) => buildSubmittedPlayer(submission, predictionModel));
 }
 
-function buildSubmittedPlayer(submission) {
+function buildSubmittedPlayer(submission, predictionModel) {
   const submittedState = submission.state;
   const matches = getSubmittedMatches(submission);
   const livePoints = summarizeScores(matches).total;
-  const projectedMatches = matches.map((match) => ({
-    ...match,
-    actual:
-      match.actual.status === "final"
-        ? match.actual
-        : {
-            home: match.prediction.home,
-            away: match.prediction.away,
-            pick: match.prediction.pick,
-            status: "final",
-          },
-  }));
+  const predictedPoints = matches.reduce((total, match, index) => {
+    if (match.actual.status === "final") return total + scoreMatch(match).total;
+    return total + getExpectedPredictionPoints(match.prediction, predictionModel[index]);
+  }, 0);
   const name = normalizeName(submission.player_name || submittedState.player?.name) || "Anonymous";
 
   return {
@@ -489,8 +482,66 @@ function buildSubmittedPlayer(submission) {
     name,
     shortName: name.slice(0, 8),
     livePoints,
-    projectedPoints: summarizeScores(projectedMatches).total,
+    projectedPoints: predictedPoints,
   };
+}
+
+function buildPredictionModel(allSubmissions) {
+  return state.matches.map((match, index) => {
+    const model = {
+      total: 0,
+      winners: new Map(),
+      goalDifferences: new Map(),
+      scores: new Map(),
+    };
+
+    if (match.actual.status === "final") return model;
+
+    allSubmissions.forEach((submission) => {
+      const prediction = submission.state?.matches?.[index]?.prediction;
+      const keys = getPredictionKeys(prediction);
+      if (!keys) return;
+
+      model.total += 1;
+      addCount(model.winners, keys.winner);
+      addCount(model.goalDifferences, keys.goalDifference);
+      addCount(model.scores, keys.score);
+    });
+
+    return model;
+  });
+}
+
+function getExpectedPredictionPoints(prediction, model) {
+  const keys = getPredictionKeys(prediction);
+  if (!keys || !model?.total) return 0;
+
+  return (
+    (model.winners.get(keys.winner) || 0) / model.total +
+    ((model.goalDifferences.get(keys.goalDifference) || 0) / model.total) * 0.5 +
+    (model.scores.get(keys.score) || 0) / model.total
+  );
+}
+
+function getPredictionKeys(prediction) {
+  if (!prediction) return null;
+
+  const home = prediction.home === null || prediction.home === undefined || prediction.home === "" ? null : Number(prediction.home);
+  const away = prediction.away === null || prediction.away === undefined || prediction.away === "" ? null : Number(prediction.away);
+  if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
+
+  const winner = prediction.pick || getPredictedWinnerFromScore(prediction) || prediction.tieBreaker;
+  if (!winner) return null;
+
+  return {
+    winner,
+    goalDifference: String(home - away),
+    score: `${home}-${away}`,
+  };
+}
+
+function addCount(map, key) {
+  map.set(key, (map.get(key) || 0) + 1);
 }
 
 function getSubmittedMatches(submission) {
