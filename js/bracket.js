@@ -1,5 +1,5 @@
-import { ROUND_NAMES } from "./data.js?v=28";
-import { getWinner, numberOrNull } from "./scoring.js?v=28";
+import { ROUND_NAMES } from "./data.js?v=29";
+import { getWinner, numberOrNull } from "./scoring.js?v=29";
 
 const ROUND_SIZES = [16, 8, 4, 2, 1];
 

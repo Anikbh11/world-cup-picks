@@ -1,15 +1,37 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=28";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=28";
-import { scoreMatch, summarizeScores } from "./scoring.js?v=28";
-import { createLiveStore } from "./supabaseStore.js?v=28";
-import { formatTeam, getFlag } from "./flags.js?v=28";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=29";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=29";
+import { numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=29";
+import { createLiveStore } from "./supabaseStore.js?v=29";
+import { formatTeam, getFlag } from "./flags.js?v=29";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
 const SUBMISSIONS_OPEN = false;
+const ESPN_SCOREBOARD_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
+const SCOREBOARD_DATES = ["20260628", "20260629", "20260630", "20260701", "20260702", "20260703", "20260704"];
+const SCORE_REFRESH_INTERVAL = 60 * 1000;
+const ESPN_FINAL_STATES = new Set(["post"]);
+const ESPN_LIVE_STATES = new Set(["in"]);
+const TEAM_ALIASES = new Map([
+  ["united states", "usa"],
+  ["united states of america", "usa"],
+  ["u.s.a.", "usa"],
+  ["ivory coast", "cote divoire"],
+  ["cote d ivoire", "cote divoire"],
+  ["cote d'ivoire", "cote divoire"],
+  ["côte d’ivoire", "cote divoire"],
+  ["côte d'ivoire", "cote divoire"],
+  ["cabo verde", "cape verde"],
+  ["bosnia-herzegovina", "bosnia and herzegovina"],
+  ["bosnia herzegovina", "bosnia and herzegovina"],
+  ["congo dr", "dr congo"],
+  ["congo, dr", "dr congo"],
+  ["d r congo", "dr congo"],
+]);
 let state = loadState();
 let liveStore = null;
 let remoteSaveTimer = null;
+let scoreRefreshTimer = null;
 let submissions = [];
 let personalLookup = localStorage.getItem(PERSONAL_LOOKUP_KEY) || "";
 
@@ -82,6 +104,9 @@ async function init() {
     }
 
     if (!isBracketEntryPage) {
+      await refreshScoresFromEspn();
+      scheduleScoreRefresh();
+
       liveStore.subscribe((incomingState) => {
         if (!isValidState(incomingState) || !isNewer(incomingState, state)) return;
         state = incomingState;
@@ -99,6 +124,129 @@ async function init() {
     console.error(error);
     setSyncStatus("Local fallback", "warning");
   }
+}
+
+function scheduleScoreRefresh() {
+  clearInterval(scoreRefreshTimer);
+  scoreRefreshTimer = setInterval(refreshScoresFromEspn, SCORE_REFRESH_INTERVAL);
+}
+
+async function refreshScoresFromEspn() {
+  if (!liveStore?.enabled || isBracketEntryPage) return;
+
+  try {
+    setSyncStatus("Checking scores...", "syncing");
+    const events = await fetchEspnEvents();
+    const changed = applyEspnEvents(events);
+    if (changed) {
+      state.updatedAt = new Date().toISOString();
+      render();
+      await liveStore.save(state);
+      setSyncStatus("Scores updated", "connected");
+      return;
+    }
+
+    setSyncStatus("Scores current", "connected");
+  } catch (error) {
+    console.error(error);
+    setSyncStatus("Score check failed", "warning");
+  }
+}
+
+async function fetchEspnEvents() {
+  const responses = await Promise.all(
+    SCOREBOARD_DATES.map(async (date) => {
+      const response = await fetch(`${ESPN_SCOREBOARD_BASE}?dates=${date}`);
+      if (!response.ok) throw new Error(`ESPN scoreboard failed for ${date}`);
+      return response.json();
+    }),
+  );
+
+  const seen = new Set();
+  return responses.flatMap((payload) => payload.events || []).filter((event) => {
+    if (seen.has(event.id)) return false;
+    seen.add(event.id);
+    return true;
+  });
+}
+
+function applyEspnEvents(events) {
+  let changed = false;
+
+  state.matches.forEach((match) => {
+    const candidate = findEspnEventForMatch(match, events);
+    if (!candidate) return;
+
+    const actual = normalizeEspnEvent(candidate.event, candidate.flip);
+    if (!actual || actual.status === "scheduled" || !hasActualChanged(match.actual, actual)) return;
+
+    match.actual = {
+      ...match.actual,
+      ...actual,
+      sourceProvider: "espn-browser",
+      sourceUpdatedAt: new Date().toISOString(),
+    };
+    changed = true;
+  });
+
+  return changed;
+}
+
+function findEspnEventForMatch(match, events) {
+  const home = normalizeTeamName(match.home);
+  const away = normalizeTeamName(match.away);
+
+  return events.reduce((best, event) => {
+    if (best) return best;
+
+    const competition = event.competitions?.[0];
+    const competitors = competition?.competitors || [];
+    const apiHome = normalizeTeamName(competitors.find((item) => item.homeAway === "home")?.team?.displayName);
+    const apiAway = normalizeTeamName(competitors.find((item) => item.homeAway === "away")?.team?.displayName);
+
+    if (home === apiHome && away === apiAway) return { event, flip: false };
+    if (home === apiAway && away === apiHome) return { event, flip: true };
+    return null;
+  }, null);
+}
+
+function normalizeEspnEvent(event, flip = false) {
+  const competition = event.competitions?.[0];
+  const competitors = competition?.competitors || [];
+  const homeTeam = competitors.find((item) => item.homeAway === "home");
+  const awayTeam = competitors.find((item) => item.homeAway === "away");
+  const apiHome = numberOrNull(homeTeam?.score);
+  const apiAway = numberOrNull(awayTeam?.score);
+  const stateName = competition?.status?.type?.state || event.status?.type?.state;
+  const status = ESPN_FINAL_STATES.has(stateName) ? "final" : ESPN_LIVE_STATES.has(stateName) ? "live" : "scheduled";
+  if (status === "scheduled" || apiHome === null || apiAway === null) return { home: null, away: null, pick: null, status };
+
+  const home = flip ? apiAway : apiHome;
+  const away = flip ? apiHome : apiAway;
+  const winnerId = competition?.winner;
+  const winner = competitors.find((item) => item.id === winnerId || item.winner);
+  const winnerSide = winner?.homeAway || (home > away ? "home" : away > home ? "away" : "home");
+  const pick = flip ? (winnerSide === "home" ? "away" : "home") : winnerSide;
+
+  return {
+    home,
+    away,
+    pick,
+    tieBreaker: pick,
+    status,
+    sourceStatus: competition?.status?.type?.shortDetail || event.status?.type?.shortDetail || stateName || status,
+  };
+}
+
+function hasActualChanged(current, next) {
+  return (
+    current?.home !== next.home ||
+    current?.away !== next.away ||
+    current?.pick !== next.pick ||
+    current?.tieBreaker !== next.tieBreaker ||
+    current?.status !== next.status ||
+    current?.sourceStatus !== next.sourceStatus
+  );
 }
 
 function render() {
@@ -885,6 +1033,19 @@ function persist() {
 
 function normalizeName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
+}
+
+function normalizeTeamName(name) {
+  const normalized = String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  return TEAM_ALIASES.get(normalized) || normalized;
 }
 
 function queueRemoteSave({ immediate = false } = {}) {
