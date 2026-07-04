@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=30";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=30";
-import { numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=30";
-import { createLiveStore } from "./supabaseStore.js?v=30";
-import { formatTeam, getFlag } from "./flags.js?v=30";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=31";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=31";
+import { numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=31";
+import { createLiveStore } from "./supabaseStore.js?v=31";
+import { formatTeam, getFlag } from "./flags.js?v=31";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -418,8 +418,11 @@ function renderMetrics(summary, players) {
 
   if (elements.championMetric) elements.championMetric.textContent = players.length;
   if (elements.championSource) elements.championSource.textContent = players.length === 1 ? "1 locked bracket" : `${players.length} locked brackets`;
-  if (elements.pointsMetric) elements.pointsMetric.textContent = `${summary.completed}/16`;
-  if (elements.pointsDetail) elements.pointsDetail.textContent = summary.completed ? `${summary.completed} matches with final scores` : "No final scores yet";
+  if (elements.pointsMetric) elements.pointsMetric.textContent = summary.completed === 16 ? "Round of 16" : `${summary.completed}/16`;
+  if (elements.pointsDetail) {
+    elements.pointsDetail.textContent =
+      summary.completed === 16 ? "Round of 32 complete. Follow the next bracket path." : summary.completed ? `${summary.completed} matches with final scores` : "No final scores yet";
+  }
   if (elements.accuracyMetric) elements.accuracyMetric.textContent = liveLeader ? liveLeader.name : "-";
   if (elements.accuracyDetail) elements.accuracyDetail.textContent = liveLeader ? `${formatNumber(liveLeader.livePoints)} live points` : "No points yet";
   if (elements.exactMetric) elements.exactMetric.textContent = projectedLeader ? projectedLeader.name : "-";
@@ -754,7 +757,7 @@ function formatPrediction(match) {
   const away = match.prediction.away ?? "-";
   const pickedSide = match.prediction.pick || getPredictedWinnerFromScore(match.prediction);
   const pick = pickedSide ? formatTeam(match[pickedSide]) : "draw";
-  return `${home}-${away}, ${pick}`;
+  return `${formatTeam(match.home)} ${home}-${away} ${formatTeam(match.away)}, ${pick}`;
 }
 
 function getPredictedWinnerFromScore(prediction) {
