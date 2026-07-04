@@ -1,9 +1,9 @@
-import { ROUND_NAMES } from "./data.js?v=32";
-import { getWinner, numberOrNull } from "./scoring.js?v=32";
+import { ROUND_NAMES } from "./data.js?v=33";
+import { getWinner, numberOrNull } from "./scoring.js?v=33";
 
 const ROUND_SIZES = [16, 8, 4, 2, 1];
 
-export function buildBracket(matches, bracketPicks = {}, bracketScores = {}) {
+export function buildBracket(matches, bracketPicks = {}, bracketScores = {}, bracketActuals = {}) {
   const rounds = ROUND_SIZES.map((size, round) =>
     Array.from({ length: size }, (_, index) => ({
       id: `${round}-${index}`,
@@ -40,17 +40,19 @@ export function buildBracket(matches, bracketPicks = {}, bracketScores = {}) {
       const first = rounds[round - 1][index * 2];
       const second = rounds[round - 1][index * 2 + 1];
       const teams = [{ name: first?.winner || "TBD" }, { name: second?.winner || "TBD" }];
-      const pick = bracketPicks[node.id];
+      const actual = bracketActuals[node.id];
+      const pick = actual?.status === "final" || actual?.status === "live" ? actual.winner : bracketPicks[node.id];
       const pickStillValid = teams.some((team) => team.name === pick && team.name !== "TBD");
       const winner = pickStillValid ? pick : null;
+      const isActual = actual?.status === "final" || actual?.status === "live";
 
       return {
         ...node,
-        status: first?.status === "final" && second?.status === "final" ? "final" : "predicted",
+        status: isActual ? actual.status : "predicted",
         teams,
         winner,
         winnerSide: winner ? (winner === teams[0].name ? "home" : "away") : null,
-        score: bracketScores[node.id] || [null, null],
+        score: isActual ? [numberOrNull(actual.home), numberOrNull(actual.away)] : bracketScores[node.id] || [null, null],
       };
     });
   }

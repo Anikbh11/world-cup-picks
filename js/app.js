@@ -1,14 +1,14 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=32";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=32";
-import { numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=32";
-import { createLiveStore } from "./supabaseStore.js?v=32";
-import { formatTeam, getFlag } from "./flags.js?v=32";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=33";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=33";
+import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=33";
+import { createLiveStore } from "./supabaseStore.js?v=33";
+import { formatTeam, getFlag } from "./flags.js?v=33";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
 const SUBMISSIONS_OPEN = false;
 const ESPN_SCOREBOARD_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
-const SCOREBOARD_DATES = ["20260628", "20260629", "20260630", "20260701", "20260702", "20260703", "20260704"];
+const SCOREBOARD_DATES = ["20260628", "20260629", "20260630", "20260701", "20260702", "20260703", "20260704", "20260705", "20260706", "20260707", "20260708"];
 const SCORE_REFRESH_INTERVAL = 60 * 1000;
 const ESPN_FINAL_STATES = new Set(["post"]);
 const ESPN_LIVE_STATES = new Set(["in"]);
@@ -190,12 +190,47 @@ function applyEspnEvents(events) {
     changed = true;
   });
 
+  const rounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores, state.bracketActuals);
+  rounds.slice(1).flat().forEach((node) => {
+    if (node.teams.some((team) => team.name === "TBD")) return;
+
+    const candidate = findEspnEventForTeams(node.teams[0].name, node.teams[1].name, events);
+    if (!candidate) return;
+
+    const actual = normalizeEspnEvent(candidate.event, candidate.flip);
+    if (!actual || actual.status === "scheduled") return;
+
+    const winner = actual.pick === "home" ? node.teams[0].name : actual.pick === "away" ? node.teams[1].name : null;
+    const nextActual = {
+      home: actual.home,
+      away: actual.away,
+      winner,
+      status: actual.status,
+      sourceStatus: actual.sourceStatus,
+      sourceProvider: "espn-browser",
+      sourceUpdatedAt: new Date().toISOString(),
+    };
+    const currentActual = state.bracketActuals?.[node.id];
+
+    if ((nextActual.status === "final" && !winner) || !hasBracketActualChanged(currentActual, nextActual)) return;
+
+    state.bracketActuals = {
+      ...(state.bracketActuals || {}),
+      [node.id]: nextActual,
+    };
+    changed = true;
+  });
+
   return changed;
 }
 
 function findEspnEventForMatch(match, events) {
-  const home = normalizeTeamName(match.home);
-  const away = normalizeTeamName(match.away);
+  return findEspnEventForTeams(match.home, match.away, events);
+}
+
+function findEspnEventForTeams(homeName, awayName, events) {
+  const home = normalizeTeamName(homeName);
+  const away = normalizeTeamName(awayName);
 
   return events.reduce((best, event) => {
     if (best) return best;
@@ -226,8 +261,8 @@ function normalizeEspnEvent(event, flip = false) {
   const away = flip ? apiHome : apiAway;
   const winnerId = competition?.winner;
   const winner = competitors.find((item) => item.id === winnerId || item.winner);
-  const winnerSide = winner?.homeAway || (home > away ? "home" : away > home ? "away" : "home");
-  const pick = flip ? (winnerSide === "home" ? "away" : "home") : winnerSide;
+  const winnerSide = winner?.homeAway || (home > away ? "home" : away > home ? "away" : null);
+  const pick = winnerSide ? (flip ? (winnerSide === "home" ? "away" : "home") : winnerSide) : null;
 
   return {
     home,
@@ -250,8 +285,18 @@ function hasActualChanged(current, next) {
   );
 }
 
+function hasBracketActualChanged(current, next) {
+  return (
+    current?.home !== next.home ||
+    current?.away !== next.away ||
+    current?.winner !== next.winner ||
+    current?.status !== next.status ||
+    current?.sourceStatus !== next.sourceStatus
+  );
+}
+
 function render() {
-  const rounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores);
+  const rounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores, state.bracketActuals);
   const summary = summarizeScores(state.matches);
   const players = buildPlayers();
 
@@ -415,13 +460,20 @@ function renderPersonalLookup() {
 function renderMetrics(summary, players) {
   const liveLeader = players.slice().sort((a, b) => b.livePoints - a.livePoints)[0];
   const projectedLeader = players.slice().sort((a, b) => b.projectedPoints - a.projectedPoints)[0];
+  const bracketCompleted = getCompletedBracketActuals().length;
 
   if (elements.championMetric) elements.championMetric.textContent = players.length;
   if (elements.championSource) elements.championSource.textContent = players.length === 1 ? "1 locked bracket" : `${players.length} locked brackets`;
   if (elements.pointsMetric) elements.pointsMetric.textContent = summary.completed === 16 ? "Round of 16" : `${summary.completed}/16`;
   if (elements.pointsDetail) {
     elements.pointsDetail.textContent =
-      summary.completed === 16 ? "Round of 32 complete. Follow the next bracket path." : summary.completed ? `${summary.completed} matches with final scores` : "No final scores yet";
+      summary.completed === 16
+        ? bracketCompleted
+          ? `Round of 32 complete. ${bracketCompleted} knockout match${bracketCompleted === 1 ? "" : "es"} scored.`
+          : "Round of 32 complete. Follow the next bracket path."
+        : summary.completed
+          ? `${summary.completed} matches with final scores`
+          : "No final scores yet";
   }
   if (elements.accuracyMetric) elements.accuracyMetric.textContent = liveLeader ? liveLeader.name : "-";
   if (elements.accuracyDetail) elements.accuracyDetail.textContent = liveLeader ? `${formatNumber(liveLeader.livePoints)} live points` : "No points yet";
@@ -438,7 +490,7 @@ function renderStats(summary, players) {
   const averageLive = livePoints.length ? livePoints.reduce((sum, value) => sum + value, 0) / livePoints.length : 0;
   const averageProjected = projectedPoints.length ? projectedPoints.reduce((sum, value) => sum + value, 0) / projectedPoints.length : 0;
   const spread = livePoints.length ? Math.max(...livePoints) - Math.min(...livePoints) : 0;
-  const activeMatches = state.matches.filter((match) => match.actual.status === "live").length;
+  const activeMatches = state.matches.filter((match) => match.actual.status === "live").length + getLiveBracketActuals().length;
 
   elements.qualityStats.innerHTML = `
     <div class="stat-line"><span>Locked brackets</span><strong>${players.length}</strong></div>
@@ -476,6 +528,10 @@ function renderScoreBreakdown() {
 
   const matchedSubmission = getPersonalSubmission();
   const matchedMatches = matchedSubmission ? getSubmittedMatches(matchedSubmission) : null;
+  const submittedRounds = matchedSubmission
+    ? buildBracket(matchedSubmission.state?.matches || [], matchedSubmission.state?.bracketPicks || {}, matchedSubmission.state?.bracketScores || {})
+    : null;
+  const actualRounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores, state.bracketActuals);
   const rows = state.matches
     .map((match, index) => ({ match, index }))
     .filter(({ match }) => match.actual.status === "final" || match.actual.status === "live")
@@ -498,9 +554,31 @@ function renderScoreBreakdown() {
       `;
       return row;
     });
+  const bracketRows = actualRounds
+    .slice(1)
+    .flat()
+    .filter((node) => node.status === "final" || node.status === "live")
+    .map((node) => {
+      const personalNode = submittedRounds?.[node.round]?.find((item) => item.id === node.id);
+      const score = personalNode ? scoreBracketNode(personalNode, node) : null;
+      const row = document.createElement("div");
+      row.className = `breakdown-row ${node.status === "live" ? "is-live" : "is-final"}`;
+      const personalText = score
+        ? `Prediction ${formatBracketPrediction(personalNode)} | ${node.status === "final" ? `${formatNumber(score.total)} pts` : "points after final whistle"}`
+        : "Enter a submitted name to compare predictions.";
+      row.innerHTML = `
+        <div>
+          <strong>${node.roundName}: ${formatTeam(node.teams[0].name)} ${formatBracketScore(node)} ${formatTeam(node.teams[1].name)}</strong>
+          <small>${personalText}</small>
+        </div>
+        <strong class="result-pill">${node.status === "live" ? `Live · ${formatBracketScore(node)}` : `Final · ${formatBracketScore(node)}`}</strong>
+      `;
+      return row;
+    });
 
   const intro = personalLookup && !matchedSubmission ? [emptyState(`No locked bracket found for "${personalLookup}".`)] : [];
-  elements.scoreBreakdown.replaceChildren(...(rows.length ? [...intro, ...rows] : [emptyState("Results will appear here")]));
+  const allRows = [...rows, ...bracketRows];
+  elements.scoreBreakdown.replaceChildren(...(allRows.length ? [...intro, ...allRows] : [emptyState("Results will appear here")]));
 }
 
 function renderStandings(players) {
@@ -639,11 +717,14 @@ function buildPlayers() {
 function buildSubmittedPlayer(submission, predictionModel) {
   const submittedState = submission.state;
   const matches = getSubmittedMatches(submission);
-  const livePoints = summarizeScores(matches).total;
+  const submittedRounds = buildBracket(submittedState.matches || [], submittedState.bracketPicks || {}, submittedState.bracketScores || {});
+  const actualRounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores, state.bracketActuals);
+  const bracketScores = scoreBracketRounds(submittedRounds, actualRounds);
+  const livePoints = summarizeScores(matches).total + bracketScores.total;
   const predictedPoints = matches.reduce((total, match, index) => {
     if (match.actual.status === "final") return total + scoreMatch(match).total;
     return total + getExpectedPredictionPoints(match.prediction, predictionModel[index]);
-  }, 0);
+  }, bracketScores.total);
   const name = normalizeName(submission.player_name || submittedState.player?.name) || "Anonymous";
 
   return {
@@ -653,6 +734,61 @@ function buildSubmittedPlayer(submission, predictionModel) {
     livePoints,
     projectedPoints: predictedPoints,
   };
+}
+
+function scoreBracketRounds(predictedRounds, actualRounds) {
+  const completed = actualRounds
+    .slice(1)
+    .flat()
+    .filter((node) => node.status === "final" && node.winner);
+  const scored = completed.map((actualNode) => {
+    const predictedNode = predictedRounds[actualNode.round]?.find((node) => node.id === actualNode.id);
+    return scoreBracketNode(predictedNode, actualNode);
+  });
+
+  return {
+    total: scored.reduce((sum, score) => sum + score.total, 0),
+    completed: completed.length,
+  };
+}
+
+function scoreBracketNode(predictedNode, actualNode) {
+  if (!predictedNode || actualNode.status !== "final" || !actualNode.winner) return { total: 0 };
+
+  const predictedWinner = predictedNode.winner || getWinner(numberOrNull(predictedNode.score[0]), numberOrNull(predictedNode.score[1]), predictedNode.winnerSide);
+  const winner = predictedWinner === actualNode.winner;
+  const alignedScores = getAlignedBracketScores(predictedNode, actualNode);
+  const goalDifference = Boolean(alignedScores && alignedScores.predictedHome - alignedScores.predictedAway === alignedScores.actualHome - alignedScores.actualAway);
+  const exact = Boolean(alignedScores && alignedScores.predictedHome === alignedScores.actualHome && alignedScores.predictedAway === alignedScores.actualAway);
+
+  return {
+    total: (winner ? 1 : 0) + (goalDifference ? 0.5 : 0) + (exact ? 1 : 0),
+    winner,
+    goalDifference,
+    exact,
+  };
+}
+
+function getAlignedBracketScores(predictedNode, actualNode) {
+  const predictedHome = numberOrNull(predictedNode.score[0]);
+  const predictedAway = numberOrNull(predictedNode.score[1]);
+  const actualHome = numberOrNull(actualNode.score[0]);
+  const actualAway = numberOrNull(actualNode.score[1]);
+
+  if (predictedHome === null || predictedAway === null || actualHome === null || actualAway === null) return null;
+
+  const predictedTeams = predictedNode.teams.map((team) => team.name);
+  const actualTeams = actualNode.teams.map((team) => team.name);
+
+  if (predictedTeams[0] === actualTeams[0] && predictedTeams[1] === actualTeams[1]) {
+    return { predictedHome, predictedAway, actualHome, actualAway };
+  }
+
+  if (predictedTeams[0] === actualTeams[1] && predictedTeams[1] === actualTeams[0]) {
+    return { predictedHome, predictedAway, actualHome: actualAway, actualAway: actualHome };
+  }
+
+  return null;
 }
 
 function buildPredictionModel(allSubmissions) {
@@ -757,6 +893,29 @@ function getResultStatusText(match) {
   if (match.actual.status === "live") return `Live · ${score}`;
   if (match.actual.status === "final") return `Final · ${score}`;
   return "Scheduled";
+}
+
+function getCompletedBracketActuals() {
+  return Object.values(state.bracketActuals || {}).filter((actual) => actual.status === "final");
+}
+
+function getLiveBracketActuals() {
+  return Object.values(state.bracketActuals || {}).filter((actual) => actual.status === "live");
+}
+
+function formatBracketScore(node) {
+  const home = node.score[0] ?? "-";
+  const away = node.score[1] ?? "-";
+  return `${home}-${away}`;
+}
+
+function formatBracketPrediction(node) {
+  if (!node) return "-";
+
+  const home = node.score[0] ?? "-";
+  const away = node.score[1] ?? "-";
+  const pick = node.winner ? formatTeam(node.winner) : "no winner";
+  return `${formatTeam(node.teams[0].name)} ${home}-${away} ${formatTeam(node.teams[1].name)}, ${pick}`;
 }
 
 function formatPrediction(match) {
