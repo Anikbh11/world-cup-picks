@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=29";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=29";
-import { numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=29";
-import { createLiveStore } from "./supabaseStore.js?v=29";
-import { formatTeam, getFlag } from "./flags.js?v=29";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=30";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=30";
+import { numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=30";
+import { createLiveStore } from "./supabaseStore.js?v=30";
+import { formatTeam, getFlag } from "./flags.js?v=30";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -100,6 +100,7 @@ async function init() {
 
     if (liveStore.enabled) {
       submissions = await liveStore.loadSubmissions();
+      loadBracketFromQuery();
       render();
     }
 
@@ -511,13 +512,20 @@ function renderStandings(players) {
     .sort((a, b) => b.livePoints - a.livePoints || b.projectedPoints - a.projectedPoints)
     .map((player, index) => {
       const row = document.createElement("div");
+      const rank = document.createElement("span");
+      const nameLink = document.createElement("a");
+      const livePoints = document.createElement("span");
+      const predictedPoints = document.createElement("span");
+
       row.className = "standing-row";
-      row.innerHTML = `
-        <span class="standing-rank">${index + 1}</span>
-        <strong>${player.name}</strong>
-        <span>${formatNumber(player.livePoints)} live</span>
-        <span>${formatNumber(player.projectedPoints)} predicted</span>
-      `;
+      rank.className = "standing-rank";
+      rank.textContent = index + 1;
+      nameLink.className = "standing-player-link";
+      nameLink.href = `./bracket.html?view=${encodeURIComponent(player.name)}`;
+      nameLink.textContent = player.name;
+      livePoints.textContent = `${formatNumber(player.livePoints)} live`;
+      predictedPoints.textContent = `${formatNumber(player.projectedPoints)} predicted`;
+      row.append(rank, nameLink, livePoints, predictedPoints);
       return row;
     });
 
@@ -894,7 +902,22 @@ function handlePlayerInput(event) {
 }
 
 function handleBracketLookup(event) {
-  const query = normalizeName(event.target.value).toLowerCase();
+  loadBracketByName(event.target.value);
+}
+
+function loadBracketFromQuery() {
+  if (!elements.bracketLookup) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const requestedName = params.get("view");
+  if (!requestedName) return;
+
+  elements.bracketLookup.value = requestedName;
+  loadBracketByName(requestedName);
+}
+
+function loadBracketByName(rawName) {
+  const query = normalizeName(rawName).toLowerCase();
   if (!query) return;
 
   const submission = submissions.find((item) => {
@@ -903,7 +926,7 @@ function handleBracketLookup(event) {
   });
 
   if (!submission) {
-    if (elements.lockCopy) elements.lockCopy.textContent = `No locked bracket found for "${event.target.value.trim()}".`;
+    if (elements.lockCopy) elements.lockCopy.textContent = `No locked bracket found for "${String(rawName || "").trim()}".`;
     return;
   }
 

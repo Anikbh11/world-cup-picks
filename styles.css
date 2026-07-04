@@ -586,8 +586,24 @@ h2 {
   color: var(--muted);
 }
 
-.standing-row strong {
+.standing-row strong,
+.standing-player-link {
   color: var(--text);
+}
+
+.standing-player-link {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+  font-weight: 750;
+}
+
+.standing-player-link:hover,
+.standing-player-link:focus-visible {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .standing-rank {

@@ -1,5 +1,5 @@
-import { SUPABASE_CONFIG } from "./config.js?v=29";
-import { STATE_VERSION } from "./data.js?v=29";
+import { SUPABASE_CONFIG } from "./config.js?v=30";
+import { STATE_VERSION } from "./data.js?v=30";
 
 const PLACEHOLDER_VALUES = new Set(["", "YOUR_SUPABASE_URL", "YOUR_SUPABASE_ANON_KEY"]);
 
