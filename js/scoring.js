@@ -11,7 +11,7 @@ export function scoreMatch(match) {
   const actualHome = numberOrNull(match.actual.home);
   const actualAway = numberOrNull(match.actual.away);
 
-  if (match.actual.status !== "final" || predictedHome === null || predictedAway === null || actualHome === null || actualAway === null) {
+  if (match.actual.status !== "final" || actualHome === null || actualAway === null) {
     return {
       total: 0,
       winner: false,
@@ -21,11 +21,12 @@ export function scoreMatch(match) {
     };
   }
 
-  const predictedWinner = match.prediction.pick || getWinner(predictedHome, predictedAway, match.prediction.tieBreaker);
+  const hasPredictedScore = predictedHome !== null && predictedAway !== null;
+  const predictedWinner = match.prediction.pick || (hasPredictedScore ? getWinner(predictedHome, predictedAway, match.prediction.tieBreaker) : null);
   const actualWinner = match.actual.pick || getWinner(actualHome, actualAway, match.actual.tieBreaker);
-  const winner = predictedWinner === actualWinner;
-  const goalDifference = predictedHome - predictedAway === actualHome - actualAway;
-  const exact = predictedHome === actualHome && predictedAway === actualAway;
+  const winner = Boolean(predictedWinner && predictedWinner === actualWinner);
+  const goalDifference = hasPredictedScore && predictedHome - predictedAway === actualHome - actualAway;
+  const exact = hasPredictedScore && predictedHome === actualHome && predictedAway === actualAway;
 
   return {
     total: (winner ? 1 : 0) + (goalDifference ? 0.5 : 0) + (exact ? 1 : 0),

@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=31";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=31";
-import { numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=31";
-import { createLiveStore } from "./supabaseStore.js?v=31";
-import { formatTeam, getFlag } from "./flags.js?v=31";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=32";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=32";
+import { numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=32";
+import { createLiveStore } from "./supabaseStore.js?v=32";
+import { formatTeam, getFlag } from "./flags.js?v=32";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -513,7 +513,7 @@ function renderStandings(players) {
   const rows = players
     .slice()
     .sort((a, b) => b.livePoints - a.livePoints || b.projectedPoints - a.projectedPoints)
-    .map((player, index) => {
+    .map((player, index, sortedPlayers) => {
       const row = document.createElement("div");
       const rank = document.createElement("span");
       const nameLink = document.createElement("a");
@@ -522,7 +522,7 @@ function renderStandings(players) {
 
       row.className = "standing-row";
       rank.className = "standing-rank";
-      rank.textContent = index + 1;
+      rank.textContent = getSharedRank(sortedPlayers, index, "livePoints");
       nameLink.className = "standing-player-link";
       nameLink.href = `./bracket.html?view=${encodeURIComponent(player.name)}`;
       nameLink.textContent = player.name;
@@ -586,10 +586,11 @@ function renderRaceStats(players) {
   chaserList.className = "chaser-list";
   chaserList.append(
     ...chasers.map((player, index) => {
+      const playerIndex = index + 1;
       const row = document.createElement("div");
       row.className = "chaser-row";
       row.innerHTML = `
-        <span class="standing-rank">${index + 2}</span>
+        <span class="standing-rank">${getSharedRank(sorted, playerIndex, "livePoints")}</span>
         <strong>${player.name}</strong>
         <span>${formatNumber(leader.livePoints - player.livePoints)} back</span>
       `;
@@ -613,7 +614,7 @@ function renderPointsList(container, players, key) {
     const row = document.createElement("div");
     row.className = "points-row-chart";
     row.innerHTML = `
-      <span class="standing-rank">${index + 1}</span>
+      <span class="standing-rank">${getSharedRank(sorted, index, key)}</span>
       <strong>${player.name}</strong>
       <div class="points-track"><span style="width: ${(player[key] / max) * 100}%"></span></div>
       <b>${formatNumber(player[key])}</b>
@@ -622,6 +623,12 @@ function renderPointsList(container, players, key) {
   });
 
   container.replaceChildren(...rows);
+}
+
+function getSharedRank(sortedPlayers, index, key) {
+  const value = sortedPlayers[index]?.[key];
+  const firstIndex = sortedPlayers.findIndex((player) => player[key] === value);
+  return firstIndex + 1;
 }
 
 function buildPlayers() {
