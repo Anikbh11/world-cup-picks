@@ -25,7 +25,7 @@ export function scoreMatch(match) {
   const predictedWinner = match.prediction.pick || (hasPredictedScore ? getWinner(predictedHome, predictedAway, match.prediction.tieBreaker) : null);
   const actualWinner = match.actual.pick || getWinner(actualHome, actualAway, match.actual.tieBreaker);
   const winner = Boolean(predictedWinner && predictedWinner === actualWinner);
-  const goalDifference = hasPredictedScore && predictedHome - predictedAway === actualHome - actualAway;
+  const goalDifference = winner && hasPredictedScore && predictedHome - predictedAway === actualHome - actualAway;
   const exact = hasPredictedScore && predictedHome === actualHome && predictedAway === actualAway;
 
   return {
