@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=34";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=34";
-import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=34";
-import { createLiveStore } from "./supabaseStore.js?v=34";
-import { formatTeam, getFlag } from "./flags.js?v=34";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=35";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=35";
+import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=35";
+import { createLiveStore } from "./supabaseStore.js?v=35";
+import { formatTeam, getFlag } from "./flags.js?v=35";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -825,6 +825,24 @@ function getAlignedBracketScores(predictedNode, actualNode) {
 
   if (predictedTeams[0] === actualTeams[1] && predictedTeams[1] === actualTeams[0]) {
     return { predictedHome, predictedAway, actualHome: actualAway, actualAway: actualHome };
+  }
+
+  if (predictedNode.winner && predictedNode.winner === actualNode.winner) {
+    const predictedWinnerIndex = predictedTeams.findIndex((team) => team === predictedNode.winner);
+    const actualWinnerIndex = actualTeams.findIndex((team) => team === actualNode.winner);
+    if (predictedWinnerIndex === -1 || actualWinnerIndex === -1) return null;
+
+    const predictedWinnerGoals = predictedWinnerIndex === 0 ? predictedHome : predictedAway;
+    const predictedOtherGoals = predictedWinnerIndex === 0 ? predictedAway : predictedHome;
+    const actualWinnerGoals = actualWinnerIndex === 0 ? actualHome : actualAway;
+    const actualOtherGoals = actualWinnerIndex === 0 ? actualAway : actualHome;
+
+    return {
+      predictedHome: predictedWinnerGoals,
+      predictedAway: predictedOtherGoals,
+      actualHome: actualWinnerGoals,
+      actualAway: actualOtherGoals,
+    };
   }
 
   return null;
