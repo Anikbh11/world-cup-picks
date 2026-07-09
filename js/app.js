@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=36";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=36";
-import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=36";
-import { createLiveStore } from "./supabaseStore.js?v=36";
-import { formatTeam, getFlag } from "./flags.js?v=36";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=37";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=37";
+import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=37";
+import { createLiveStore } from "./supabaseStore.js?v=37";
+import { formatTeam, getFlag } from "./flags.js?v=37";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -797,8 +797,8 @@ function scoreBracketNode(predictedNode, actualNode) {
   const predictedWinner = predictedNode.winner || getWinner(numberOrNull(predictedNode.score[0]), numberOrNull(predictedNode.score[1]), predictedNode.winnerSide);
   const winner = predictedWinner === actualNode.winner;
   const alignedScores = getAlignedBracketScores(predictedNode, actualNode);
-  const goalDifference = Boolean(winner && alignedScores && alignedScores.predictedHome - alignedScores.predictedAway === alignedScores.actualHome - alignedScores.actualAway);
-  const exact = Boolean(winner && alignedScores && alignedScores.predictedHome === alignedScores.actualHome && alignedScores.predictedAway === alignedScores.actualAway);
+  const goalDifference = Boolean(alignedScores && alignedScores.predictedHome - alignedScores.predictedAway === alignedScores.actualHome - alignedScores.actualAway);
+  const exact = Boolean(alignedScores?.teamsMatch && alignedScores.predictedHome === alignedScores.actualHome && alignedScores.predictedAway === alignedScores.actualAway);
 
   return {
     total: (winner ? 1 : 0) + (goalDifference ? 0.5 : 0) + (exact ? 1 : 0),
@@ -820,11 +820,11 @@ function getAlignedBracketScores(predictedNode, actualNode) {
   const actualTeams = actualNode.teams.map((team) => team.name);
 
   if (predictedTeams[0] === actualTeams[0] && predictedTeams[1] === actualTeams[1]) {
-    return { predictedHome, predictedAway, actualHome, actualAway };
+    return { predictedHome, predictedAway, actualHome, actualAway, teamsMatch: true };
   }
 
   if (predictedTeams[0] === actualTeams[1] && predictedTeams[1] === actualTeams[0]) {
-    return { predictedHome, predictedAway, actualHome: actualAway, actualAway: actualHome };
+    return { predictedHome, predictedAway, actualHome: actualAway, actualAway: actualHome, teamsMatch: true };
   }
 
   if (predictedNode.winner && predictedNode.winner === actualNode.winner) {
@@ -842,6 +842,7 @@ function getAlignedBracketScores(predictedNode, actualNode) {
       predictedAway: predictedOtherGoals,
       actualHome: actualWinnerGoals,
       actualAway: actualOtherGoals,
+      teamsMatch: false,
     };
   }
 
