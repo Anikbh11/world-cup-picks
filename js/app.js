@@ -1,14 +1,32 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=33";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=33";
-import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=33";
-import { createLiveStore } from "./supabaseStore.js?v=33";
-import { formatTeam, getFlag } from "./flags.js?v=33";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=34";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=34";
+import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=34";
+import { createLiveStore } from "./supabaseStore.js?v=34";
+import { formatTeam, getFlag } from "./flags.js?v=34";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
 const SUBMISSIONS_OPEN = false;
 const ESPN_SCOREBOARD_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
-const SCOREBOARD_DATES = ["20260628", "20260629", "20260630", "20260701", "20260702", "20260703", "20260704", "20260705", "20260706", "20260707", "20260708"];
+const SCOREBOARD_DATES = [
+  "20260628",
+  "20260629",
+  "20260630",
+  "20260701",
+  "20260702",
+  "20260703",
+  "20260704",
+  "20260705",
+  "20260706",
+  "20260707",
+  "20260708",
+  "20260709",
+  "20260710",
+  "20260711",
+  "20260712",
+  "20260713",
+  "20260714",
+];
 const SCORE_REFRESH_INTERVAL = 60 * 1000;
 const ESPN_FINAL_STATES = new Set(["post"]);
 const ESPN_LIVE_STATES = new Set(["in"]);
@@ -190,7 +208,19 @@ function applyEspnEvents(events) {
     changed = true;
   });
 
+  for (let pass = 0; pass < 4; pass += 1) {
+    const passChanged = applyBracketEspnEvents(events);
+    changed = changed || passChanged;
+    if (!passChanged) break;
+  }
+
+  return changed;
+}
+
+function applyBracketEspnEvents(events) {
+  let changed = false;
   const rounds = buildBracket(state.matches, state.bracketPicks, state.bracketScores, state.bracketActuals);
+
   rounds.slice(1).flat().forEach((node) => {
     if (node.teams.some((team) => team.name === "TBD")) return;
 
@@ -461,16 +491,17 @@ function renderMetrics(summary, players) {
   const liveLeader = players.slice().sort((a, b) => b.livePoints - a.livePoints)[0];
   const projectedLeader = players.slice().sort((a, b) => b.projectedPoints - a.projectedPoints)[0];
   const bracketCompleted = getCompletedBracketActuals().length;
+  const tournamentPhase = getTournamentPhase(summary.completed, bracketCompleted);
 
   if (elements.championMetric) elements.championMetric.textContent = players.length;
   if (elements.championSource) elements.championSource.textContent = players.length === 1 ? "1 locked bracket" : `${players.length} locked brackets`;
-  if (elements.pointsMetric) elements.pointsMetric.textContent = summary.completed === 16 ? "Round of 16" : `${summary.completed}/16`;
+  if (elements.pointsMetric) elements.pointsMetric.textContent = tournamentPhase;
   if (elements.pointsDetail) {
     elements.pointsDetail.textContent =
       summary.completed === 16
         ? bracketCompleted
           ? `Round of 32 complete. ${bracketCompleted} knockout match${bracketCompleted === 1 ? "" : "es"} scored.`
-          : "Round of 32 complete. Follow the next bracket path."
+          : "Round of 32 complete. Quarterfinals are underway."
         : summary.completed
           ? `${summary.completed} matches with final scores`
           : "No final scores yet";
@@ -480,6 +511,14 @@ function renderMetrics(summary, players) {
   if (elements.exactMetric) elements.exactMetric.textContent = projectedLeader ? projectedLeader.name : "-";
   if (elements.exactDetail) elements.exactDetail.textContent = projectedLeader ? `${formatNumber(projectedLeader.projectedPoints)} predicted points` : "Awaiting brackets";
   if (elements.completedPill) elements.completedPill.textContent = elements.lockButton ? (state.locked ? "Locked" : "Draft") : `${summary.completed}/16 final`;
+}
+
+function getTournamentPhase(roundOf32Completed, knockoutCompleted) {
+  if (knockoutCompleted >= 14) return "Final";
+  if (knockoutCompleted >= 12) return "Semifinals";
+  if (knockoutCompleted >= 8) return "Quarterfinals";
+  if (roundOf32Completed === 16) return "Quarterfinals";
+  return `${roundOf32Completed}/16`;
 }
 
 function renderStats(summary, players) {
