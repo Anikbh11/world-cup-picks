@@ -1,8 +1,8 @@
-import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=38";
-import { buildBracket, getProjectedChampion } from "./bracket.js?v=38";
-import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=38";
-import { createLiveStore } from "./supabaseStore.js?v=38";
-import { formatTeam, getFlag } from "./flags.js?v=38";
+import { createInitialState, ROUND_NAMES, STATE_VERSION } from "./data.js?v=39";
+import { buildBracket, getProjectedChampion } from "./bracket.js?v=39";
+import { getWinner, numberOrNull, scoreMatch, summarizeScores } from "./scoring.js?v=39";
+import { createLiveStore } from "./supabaseStore.js?v=39";
+import { formatTeam, getFlag } from "./flags.js?v=39";
 
 const STORAGE_KEY = "world-cup-r32-bracket-state";
 const PERSONAL_LOOKUP_KEY = "world-cup-r32-personal-lookup";
@@ -26,6 +26,13 @@ const SCOREBOARD_DATES = [
   "20260712",
   "20260713",
   "20260714",
+  "20260715",
+  "20260716",
+  "20260717",
+  "20260718",
+  "20260719",
+  "20260720",
+  "20260721",
 ];
 const SCORE_REFRESH_INTERVAL = 60 * 1000;
 const ESPN_FINAL_STATES = new Set(["post"]);
@@ -501,7 +508,7 @@ function renderMetrics(summary, players) {
       summary.completed === 16
         ? bracketCompleted
           ? `Round of 32 complete. ${bracketCompleted} knockout match${bracketCompleted === 1 ? "" : "es"} scored.`
-          : "Round of 32 complete. Quarterfinals are underway."
+          : "Round of 32 complete. Knockout matches are underway."
         : summary.completed
           ? `${summary.completed} matches with final scores`
           : "No final scores yet";
